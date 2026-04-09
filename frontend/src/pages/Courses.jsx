@@ -23,9 +23,7 @@ export default function Courses() {
         <CardHeader>
           <CardTitle>Halaman Mata Kuliah</CardTitle>
           <CardDescription>
-            Halaman ini akan digunakan untuk mengelola data mata kuliah. Setiap mata kuliah
-            memiliki nama, kode, jumlah mahasiswa, dan jumlah SKS yang digunakan dalam
-            penentuan jadwal.
+            Halaman ini akan digunakan untuk mengelola data mata kuliah.
           </CardDescription>
         </CardHeader>
         <CardContent>

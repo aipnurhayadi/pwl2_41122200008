@@ -91,7 +91,7 @@ export default function Register() {
               />
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-3">
+          <CardFooter className="flex flex-col gap-3 mt-4">
             <Button type="submit" className="w-full" disabled={loading || success}>
               {loading ? "Memproses..." : "Daftar"}
             </Button>
