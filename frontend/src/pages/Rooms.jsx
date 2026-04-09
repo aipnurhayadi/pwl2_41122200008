@@ -23,8 +23,7 @@ export default function Rooms() {
         <CardHeader>
           <CardTitle>Halaman Ruangan</CardTitle>
           <CardDescription>
-            Halaman ini akan digunakan untuk mengelola data ruangan. Setiap ruangan memiliki
-            nama dan kapasitas yang akan digunakan sebagai batasan saat penjadwalan dilakukan.
+            Halaman ini akan digunakan untuk mengelola data ruangan.
           </CardDescription>
         </CardHeader>
         <CardContent>

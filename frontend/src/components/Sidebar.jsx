@@ -288,7 +288,7 @@ export default function Sidebar() {
       <header className="md:hidden sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur px-4">
         <Link to="/rooms" className="flex items-center gap-2 font-semibold text-lg">
           <CalendarDays className="h-5 w-5 text-primary" />
-          <span>PWL2 Scheduler</span>
+          <span>PWL</span>
         </Link>
         <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
           <Menu className="h-5 w-5" />
@@ -309,7 +309,7 @@ export default function Sidebar() {
         <div className="flex h-14 items-center justify-between px-4 border-b">
           <Link to="/rooms" className="flex items-center gap-2 font-semibold text-base" onClick={() => setMobileOpen(false)}>
             <CalendarDays className="h-5 w-5 text-primary" />
-            <span>PWL2 Scheduler</span>
+            <span>PWL</span>
           </Link>
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}>
             <X className="h-5 w-5" />
@@ -354,7 +354,7 @@ export default function Sidebar() {
             <>
               <Link to="/rooms" className="flex items-center gap-2 font-semibold text-base min-w-0">
                 <CalendarDays className="h-5 w-5 text-primary shrink-0" />
-                <span className="truncate">PWL2 Scheduler</span>
+                <span className="truncate">PWL</span>
               </Link>
               <Button variant="ghost" size="icon" className="shrink-0" onClick={() => setCollapsed(true)}>
                 <ChevronLeft className="h-4 w-4" />

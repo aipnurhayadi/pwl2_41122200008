@@ -23,8 +23,7 @@ export default function Lecturers() {
         <CardHeader>
           <CardTitle>Halaman Dosen</CardTitle>
           <CardDescription>
-            Halaman ini akan digunakan untuk mengelola data dosen. Setiap dosen memiliki nama,
-            kode, email, dan daftar mata kuliah yang dapat diajarkan.
+            Halaman ini akan digunakan untuk mengelola data dosen.
           </CardDescription>
         </CardHeader>
         <CardContent>

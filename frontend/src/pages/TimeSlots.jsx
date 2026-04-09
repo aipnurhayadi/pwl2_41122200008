@@ -23,9 +23,7 @@ export default function TimeSlots() {
         <CardHeader>
           <CardTitle>Halaman Slot Waktu</CardTitle>
           <CardDescription>
-            Halaman ini akan digunakan untuk mengelola data slot waktu. Setiap slot waktu
-            mendefinisikan hari, jam mulai, jam selesai, dan apakah termasuk sesi pagi —
-            yang digunakan sebagai preferensi dalam penjadwalan.
+            Halaman ini akan digunakan untuk mengelola data slot waktu.
           </CardDescription>
         </CardHeader>
         <CardContent>
