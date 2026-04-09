@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider, useAuth, DatasetProvider } from "@/context/AuthContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { DatasetProvider } from "@/context/DatasetContext";
 import Sidebar from "@/components/Sidebar";
 import GuestHeader from "@/components/GuestHeader";
 import ProtectedRoute from "@/components/ProtectedRoute";
