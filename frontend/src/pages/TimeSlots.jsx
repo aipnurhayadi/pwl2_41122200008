@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock } from "lucide-react";
-import { useDataset } from "@/context/AuthContext";
+import { useDataset } from "@/context/DatasetContext";
 
 export default function TimeSlots() {
   const { datasetId } = useParams();
