@@ -17,6 +17,7 @@ import {
   Check,
   Loader2,
   Database,
+  Users,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ const masterLinks = [
   { path: "lecturers", label: "Dosen", icon: GraduationCap },
   { path: "courses", label: "Mata Kuliah", icon: BookOpen },
   { path: "time-slots", label: "Slot Waktu", icon: Clock },
+  { path: "classes", label: "Kelas", icon: Users },
 ];
 
 // ── Inline dataset dropdown ───────────────────────────────────────────────────
@@ -253,6 +255,11 @@ function NavLinks({ collapsed, closeMenu }) {
 
   return (
     <>
+      {!collapsed && (
+        <p className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          Master Data
+        </p>
+      )}
       {masterLinks.map(({ path, label, icon: Icon }) => {
         const to = activeId ? `/${activeId}/${path}` : `/${path}`;
         const isActive = pathname === to || pathname.endsWith(`/${path}`);

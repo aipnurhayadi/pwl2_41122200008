@@ -1,35 +1,260 @@
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2 } from "lucide-react";
+import { Building2, Plus, Pencil, Trash2, Loader2, Search, X } from "lucide-react";
 import { useDataset } from "@/context/DatasetContext";
+import { useAuth } from "@/context/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+
+const ROOM_TYPES = ["TEORI", "LABORATORIUM", "AULA", "SEMINAR"];
+const EMPTY_FORM = { building_code: "", floor: "", room_number: "", capacity: "", room_type: "" };
+
+function roomTypeVariant(t) {
+  if (t === "LABORATORIUM") return "destructive";
+  if (t === "AULA") return "secondary";
+  if (t === "SEMINAR") return "outline";
+  return "default";
+}
 
 export default function Rooms() {
-  const { datasetId } = useParams();
+  const { datasetId: paramId } = useParams();
   const { selected } = useDataset();
-  const dsName = selected?.name ?? (datasetId ? `Dataset #${datasetId}` : null);
+  const { token } = useAuth();
+  const dsId = paramId ?? selected?.id;
+
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [dialog, setDialog] = useState(null);
+  const [delTarget, setDelTarget] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState(null);
+
+  const load = useCallback(async () => {
+    if (!dsId || !token) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/datasets/${dsId}/rooms/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setRows(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }, [dsId, token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openAdd = () => { setForm(EMPTY_FORM); setFormError(null); setDialog({ mode: "add" }); };
+  const openEdit = (row) => {
+    setForm({
+      building_code: row.building_code ?? "",
+      floor: row.floor ?? "",
+      room_number: row.room_number ?? "",
+      capacity: row.capacity ?? "",
+      room_type: row.room_type ?? "",
+    });
+    setFormError(null);
+    setDialog({ mode: "edit", row });
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setFormError(null);
+    const body = {
+      building_code: form.building_code.trim(),
+      floor: parseInt(form.floor, 10),
+      room_number: parseInt(form.room_number, 10),
+      capacity: parseInt(form.capacity, 10),
+      room_type: form.room_type || null,
+    };
+    const isEdit = dialog?.mode === "edit";
+    const url = isEdit
+      ? `/api/datasets/${dsId}/rooms/${dialog.row.id}`
+      : `/api/datasets/${dsId}/rooms/`;
+    const res = await fetch(url, {
+      method: isEdit ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setFormError(err.detail ?? "Gagal menyimpan");
+      return;
+    }
+    setDialog(null);
+    load();
+  };
+
+  const handleDelete = async () => {
+    if (!delTarget) return;
+    setSaving(true);
+    await fetch(`/api/datasets/${dsId}/rooms/${delTarget.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setSaving(false);
+    setDelTarget(null);
+    load();
+  };
+
+  const setField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const buildingNamePreview = `${form.building_code}${form.floor}${form.room_number}`;
+  const filtered = rows.filter((r) =>
+    [r.code, r.building_name].some((v) => v?.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  if (!dsId) {
+    return (
+      <main className="container mx-auto max-w-5xl px-4 py-8">
+        <p className="text-muted-foreground">Pilih dataset terlebih dahulu.</p>
+      </main>
+    );
+  }
 
   return (
-    <main className="container mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Building2 className="h-8 w-8 text-primary" />
-          Ruangan
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {dsName ? <>Dataset: <span className="font-medium text-foreground">{dsName}</span></> : "Pilih dataset terlebih dahulu"}
-        </p>
+    <main className="container mx-auto max-w-5xl px-4 py-8 space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Building2 className="h-6 w-6 text-primary" /> Ruangan
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Dataset: <span className="font-medium text-foreground">{selected?.name ?? `#${dsId}`}</span>
+          </p>
+        </div>
+        <Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" /> Tambah</Button>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Halaman Ruangan</CardTitle>
-          <CardDescription>
-            Halaman ini akan digunakan untuk mengelola data ruangan.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">Fitur CRUD ruangan sedang dalam pengembangan.</p>
-        </CardContent>
-      </Card>
+
+      <div className="relative max-w-xs">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Cari ruangan..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
+        {search && (
+          <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2">
+            <X className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : (
+        <div className="rounded-lg border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Kode</TableHead>
+                <TableHead>Nama Ruangan</TableHead>
+                <TableHead>Lantai</TableHead>
+                <TableHead>Kapasitas</TableHead>
+                <TableHead>Tipe</TableHead>
+                <TableHead className="w-20" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    {search ? "Tidak ada hasil pencarian." : "Belum ada data ruangan."}
+                  </TableCell>
+                </TableRow>
+              )}
+              {filtered.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-mono font-medium">{r.code}</TableCell>
+                  <TableCell>{r.building_name}</TableCell>
+                  <TableCell>{r.floor}</TableCell>
+                  <TableCell>{r.capacity}</TableCell>
+                  <TableCell>
+                    {r.room_type
+                      ? <Badge variant={roomTypeVariant(r.room_type)}>{r.room_type}</Badge>
+                      : <span className="text-muted-foreground text-xs">—</span>}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1 justify-end">
+                      <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDelTarget(r)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{dialog?.mode === "edit" ? "Edit Ruangan" : "Tambah Ruangan"}</DialogTitle>
+          </DialogHeader>
+          <form id="room-form" onSubmit={handleSave} className="grid grid-cols-2 gap-3 py-1">
+            <div className="space-y-1">
+              <Label htmlFor="r-bcode">Kode Gedung *</Label>
+              <Input id="r-bcode" value={form.building_code} onChange={setField("building_code")} required placeholder="A" />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="r-floor">Lantai *</Label>
+              <Input id="r-floor" type="number" min={1} value={form.floor} onChange={setField("floor")} required />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="r-roomnum">Nomor Ruangan *</Label>
+              <Input id="r-roomnum" type="number" min={1} value={form.room_number} onChange={setField("room_number")} required />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="r-cap">Kapasitas *</Label>
+              <Input id="r-cap" type="number" min={1} value={form.capacity} onChange={setField("capacity")} required />
+            </div>
+            <div className="col-span-2 space-y-1">
+              <Label htmlFor="r-bname">Nama Ruangan</Label>
+              <Input id="r-bname" value={buildingNamePreview} readOnly className="bg-muted text-muted-foreground cursor-not-allowed" placeholder="Otomatis terisi" />
+            </div>
+            <div className="col-span-2 space-y-1">
+              <Label htmlFor="r-type">Tipe Ruangan</Label>
+              <Select id="r-type" value={form.room_type} onChange={setField("room_type")}>
+                <option value="">— Pilih Tipe —</option>
+                {ROOM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </Select>
+            </div>
+            {formError && <p className="col-span-2 text-sm text-destructive">{formError}</p>}
+          </form>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
+            <Button type="submit" form="room-form" disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Hapus Ruangan</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground py-1">
+            Yakin ingin menghapus ruangan <span className="font-medium text-foreground">{delTarget?.building_name}</span>?
+          </p>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
+            <Button variant="destructive" onClick={handleDelete} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

@@ -11,6 +11,7 @@ import Rooms from "@/pages/Rooms";
 import Lecturers from "@/pages/Lecturers";
 import Courses from "@/pages/Courses";
 import TimeSlots from "@/pages/TimeSlots";
+import Classes from "@/pages/Classes";
 
 function AppRoutes() {
   const { token } = useAuth();
@@ -30,10 +31,12 @@ function AppRoutes() {
               <Route path="/:datasetId/lecturers" element={<ProtectedRoute><Lecturers /></ProtectedRoute>} />
               <Route path="/:datasetId/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
               <Route path="/:datasetId/time-slots" element={<ProtectedRoute><TimeSlots /></ProtectedRoute>} />
+              <Route path="/:datasetId/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
               <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
               <Route path="/lecturers" element={<ProtectedRoute><Lecturers /></ProtectedRoute>} />
               <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
               <Route path="/time-slots" element={<ProtectedRoute><TimeSlots /></ProtectedRoute>} />
+              <Route path="/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
             </Routes>
           </main>
         </div>
