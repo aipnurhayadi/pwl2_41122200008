@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -13,7 +15,11 @@ def list_datasets(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    return db.query(models.Dataset).filter(models.Dataset.user_id == current_user.id).all()
+    return (
+        db.query(models.Dataset)
+        .filter(models.Dataset.user_id == current_user.id, models.Dataset.deleted_at.is_(None))
+        .all()
+    )
 
 
 @router.post("/", response_model=schemas.DatasetRead, status_code=status.HTTP_201_CREATED)
@@ -37,7 +43,11 @@ def get_dataset(
 ):
     dataset = (
         db.query(models.Dataset)
-        .filter(models.Dataset.id == dataset_id, models.Dataset.user_id == current_user.id)
+        .filter(
+            models.Dataset.id == dataset_id,
+            models.Dataset.user_id == current_user.id,
+            models.Dataset.deleted_at.is_(None),
+        )
         .first()
     )
     if not dataset:
@@ -54,7 +64,11 @@ def update_dataset(
 ):
     dataset = (
         db.query(models.Dataset)
-        .filter(models.Dataset.id == dataset_id, models.Dataset.user_id == current_user.id)
+        .filter(
+            models.Dataset.id == dataset_id,
+            models.Dataset.user_id == current_user.id,
+            models.Dataset.deleted_at.is_(None),
+        )
         .first()
     )
     if not dataset:
@@ -74,10 +88,37 @@ def delete_dataset(
 ):
     dataset = (
         db.query(models.Dataset)
-        .filter(models.Dataset.id == dataset_id, models.Dataset.user_id == current_user.id)
+        .filter(
+            models.Dataset.id == dataset_id,
+            models.Dataset.user_id == current_user.id,
+            models.Dataset.deleted_at.is_(None),
+        )
         .first()
     )
     if not dataset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
-    db.delete(dataset)
+    dataset.deleted_at = datetime.now(timezone.utc)
     db.commit()
+
+
+@router.patch("/{dataset_id}/restore", response_model=schemas.DatasetRead)
+def restore_dataset(
+    dataset_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    dataset = (
+        db.query(models.Dataset)
+        .filter(
+            models.Dataset.id == dataset_id,
+            models.Dataset.user_id == current_user.id,
+            models.Dataset.deleted_at.isnot(None),
+        )
+        .first()
+    )
+    if not dataset:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deleted dataset not found")
+    dataset.deleted_at = None
+    db.commit()
+    db.refresh(dataset)
+    return dataset

@@ -10,6 +10,13 @@ from app.database import Base
 
 
 # ---------------------------------------------------------------------------
+# Soft-delete mixin
+# ---------------------------------------------------------------------------
+class SoftDeleteMixin:
+    deleted_at = Column(DateTime, nullable=True, index=True)
+
+
+# ---------------------------------------------------------------------------
 # Many-to-many join table: lecturers ↔ courses (within a dataset)
 # ---------------------------------------------------------------------------
 lecturer_courses = Table(
@@ -68,7 +75,7 @@ class RefreshToken(Base):
 # ---------------------------------------------------------------------------
 # Datasets
 # ---------------------------------------------------------------------------
-class Dataset(Base):
+class Dataset(SoftDeleteMixin, Base):
     __tablename__ = "datasets"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -83,53 +90,22 @@ class Dataset(Base):
     lecturers = relationship("Lecturer", back_populates="dataset", cascade="all, delete-orphan")
     courses = relationship("Course", back_populates="dataset", cascade="all, delete-orphan")
     time_slots = relationship("TimeSlot", back_populates="dataset", cascade="all, delete-orphan")
+    classes = relationship("Class", back_populates="dataset", cascade="all, delete-orphan")
 
 
 # ---------------------------------------------------------------------------
-# Resources
+# Enums
 # ---------------------------------------------------------------------------
-class Room(Base):
-    __tablename__ = "rooms"
-
-    id = Column(Integer, primary_key=True, index=True)
-    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
-    name = Column(String(255), nullable=False)
-    capacity = Column(Integer, nullable=False)
-
-    dataset = relationship("Dataset", back_populates="rooms")
-
-    __table_args__ = (UniqueConstraint("dataset_id", "name", name="uq_room_dataset_name"),)
+class RoomTypeEnum(str, enum.Enum):
+    TEORI = "TEORI"
+    LABORATORIUM = "LABORATORIUM"
+    AULA = "AULA"
+    SEMINAR = "SEMINAR"
 
 
-class Lecturer(Base):
-    __tablename__ = "lecturers"
-
-    id = Column(Integer, primary_key=True, index=True)
-    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
-    name = Column(String(255), nullable=False)
-    code = Column(String(50), nullable=False)
-    email = Column(String(255), nullable=True)
-
-    dataset = relationship("Dataset", back_populates="lecturers")
-    courses = relationship("Course", secondary=lecturer_courses, back_populates="lecturers")
-
-    __table_args__ = (UniqueConstraint("dataset_id", "code", name="uq_lecturer_dataset_code"),)
-
-
-class Course(Base):
-    __tablename__ = "courses"
-
-    id = Column(Integer, primary_key=True, index=True)
-    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
-    name = Column(String(255), nullable=False)
-    code = Column(String(50), nullable=False)
-    num_students = Column(Integer, nullable=False)
-    credits = Column(Integer, nullable=False)
-
-    dataset = relationship("Dataset", back_populates="courses")
-    lecturers = relationship("Lecturer", secondary=lecturer_courses, back_populates="courses")
-
-    __table_args__ = (UniqueConstraint("dataset_id", "code", name="uq_course_dataset_code"),)
+class GenderEnum(str, enum.Enum):
+    L = "L"
+    P = "P"
 
 
 class DayEnum(str, enum.Enum):
@@ -142,7 +118,75 @@ class DayEnum(str, enum.Enum):
     SUN = "SUN"
 
 
-class TimeSlot(Base):
+# ---------------------------------------------------------------------------
+# Resources
+# ---------------------------------------------------------------------------
+class Room(SoftDeleteMixin, Base):
+    __tablename__ = "rooms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    building_name = Column(String(100), nullable=False)
+    building_code = Column(String(20), nullable=False)
+    floor = Column(Integer, nullable=False)
+    room_number = Column(Integer, nullable=False)
+    code = Column(String(50), nullable=False)
+    capacity = Column(Integer, nullable=False)
+    room_type = Column(Enum(RoomTypeEnum), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    dataset = relationship("Dataset", back_populates="rooms")
+
+    __table_args__ = (
+        UniqueConstraint("dataset_id", "building_code", "floor", "room_number", name="uq_room_dataset_building_floor_number"),
+    )
+
+
+class Lecturer(SoftDeleteMixin, Base):
+    __tablename__ = "lecturers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    code = Column(String(50), nullable=False)
+    nidn = Column(String(20), nullable=True)
+    nip = Column(String(20), nullable=True)
+    front_title = Column(String(50), nullable=True)
+    back_title = Column(String(100), nullable=True)
+    email = Column(String(255), nullable=True)
+    phone = Column(String(20), nullable=True)
+    gender = Column(Enum(GenderEnum), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    dataset = relationship("Dataset", back_populates="lecturers")
+    courses = relationship("Course", secondary=lecturer_courses, back_populates="lecturers")
+
+    __table_args__ = (UniqueConstraint("dataset_id", "code", name="uq_lecturer_dataset_code"),)
+
+
+class Course(SoftDeleteMixin, Base):
+    __tablename__ = "courses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    code = Column(String(50), nullable=False)
+    credits = Column(Integer, nullable=False)
+    semester = Column(Integer, nullable=True)
+    curriculum_year = Column(Integer, nullable=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    dataset = relationship("Dataset", back_populates="courses")
+    lecturers = relationship("Lecturer", secondary=lecturer_courses, back_populates="courses")
+
+    __table_args__ = (UniqueConstraint("dataset_id", "code", name="uq_course_dataset_code"),)
+
+
+class TimeSlot(SoftDeleteMixin, Base):
     __tablename__ = "time_slots"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -150,6 +194,30 @@ class TimeSlot(Base):
     day = Column(Enum(DayEnum), nullable=False)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
-    is_morning = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     dataset = relationship("Dataset", back_populates="time_slots")
+
+
+# ---------------------------------------------------------------------------
+# Classes (Kelas)
+# ---------------------------------------------------------------------------
+class Class(SoftDeleteMixin, Base):
+    __tablename__ = "classes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    code = Column(String(50), nullable=False)
+    academic_year = Column(Integer, nullable=True)
+    semester = Column(Integer, nullable=True)
+    study_program = Column(String(255), nullable=True)
+    capacity = Column(Integer, nullable=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    dataset = relationship("Dataset", back_populates="classes")
+
+    __table_args__ = (UniqueConstraint("dataset_id", "code", name="uq_class_dataset_code"),)

@@ -1,35 +1,236 @@
+﻿import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Plus, Pencil, Trash2, Loader2, Search, X } from "lucide-react";
 import { useDataset } from "@/context/DatasetContext";
+import { useAuth } from "@/context/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+
+const EMPTY_FORM = {
+  name: "", credits: "", semester: "", curriculum_year: "", description: "",
+};
 
 export default function Courses() {
-  const { datasetId } = useParams();
+  const { datasetId: paramId } = useParams();
   const { selected } = useDataset();
-  const dsName = selected?.name ?? (datasetId ? `Dataset #${datasetId}` : null);
+  const { token } = useAuth();
+  const dsId = paramId ?? selected?.id;
+
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+  const [dialog, setDialog] = useState(null);
+  const [delTarget, setDelTarget] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState(null);
+
+  const load = useCallback(async () => {
+    if (!dsId || !token) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/datasets/${dsId}/courses/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setRows(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }, [dsId, token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openAdd = () => { setForm(EMPTY_FORM); setFormError(null); setDialog({ mode: "add" }); };
+  const openEdit = (row) => {
+    setForm({
+      name: row.name ?? "",
+      credits: row.credits ?? "",
+      semester: row.semester ?? "",
+      curriculum_year: row.curriculum_year ?? "",
+      description: row.description ?? "",
+    });
+    setFormError(null);
+    setDialog({ mode: "edit", row });
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    setFormError(null);
+    const intOrNull = (v) => v !== "" ? parseInt(v, 10) : null;
+    const body = {
+      name: form.name.trim(),
+      credits: parseInt(form.credits, 10),
+      semester: intOrNull(form.semester),
+      curriculum_year: intOrNull(form.curriculum_year),
+      description: form.description.trim() || null,
+    };
+    const isEdit = dialog?.mode === "edit";
+    const url = isEdit
+      ? `/api/datasets/${dsId}/courses/${dialog.row.id}`
+      : `/api/datasets/${dsId}/courses/`;
+    const res = await fetch(url, {
+      method: isEdit ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setFormError(err.detail ?? "Gagal menyimpan");
+      return;
+    }
+    setDialog(null);
+    load();
+  };
+
+  const handleDelete = async () => {
+    if (!delTarget) return;
+    setSaving(true);
+    await fetch(`/api/datasets/${dsId}/courses/${delTarget.id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setSaving(false);
+    setDelTarget(null);
+    load();
+  };
+
+  const setField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const filtered = rows.filter((r) =>
+    [r.code, r.name].some((v) => v?.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  if (!dsId) {
+    return (
+      <main className="container mx-auto max-w-5xl px-4 py-8">
+        <p className="text-muted-foreground">Pilih dataset terlebih dahulu.</p>
+      </main>
+    );
+  }
 
   return (
-    <main className="container mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <BookOpen className="h-8 w-8 text-primary" />
-          Mata Kuliah
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {dsName ? <>Dataset: <span className="font-medium text-foreground">{dsName}</span></> : "Pilih dataset terlebih dahulu"}
-        </p>
+    <main className="container mx-auto max-w-5xl px-4 py-8 space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <BookOpen className="h-6 w-6 text-primary" /> Mata Kuliah
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Dataset: <span className="font-medium text-foreground">{selected?.name ?? `#${dsId}`}</span>
+          </p>
+        </div>
+        <Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" /> Tambah</Button>
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Halaman Mata Kuliah</CardTitle>
-          <CardDescription>
-            Halaman ini akan digunakan untuk mengelola data mata kuliah.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">Fitur CRUD mata kuliah sedang dalam pengembangan.</p>
-        </CardContent>
-      </Card>
+
+      <div className="relative max-w-xs">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Cari mata kuliah..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
+        {search && (
+          <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2">
+            <X className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      ) : (
+        <div className="rounded-lg border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Kode</TableHead>
+                <TableHead>Nama Mata Kuliah</TableHead>
+                <TableHead>SKS</TableHead>
+                <TableHead>Sem.</TableHead>
+                <TableHead className="w-20" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    {search ? "Tidak ada hasil pencarian." : "Belum ada data mata kuliah."}
+                  </TableCell>
+                </TableRow>
+              )}
+              {filtered.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell className="font-mono font-medium">{r.code}</TableCell>
+                  <TableCell>{r.name}</TableCell>
+                  <TableCell>{r.credits}</TableCell>
+                  <TableCell>{r.semester ?? <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-1 justify-end">
+                      <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDelTarget(r)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{dialog?.mode === "edit" ? "Edit Mata Kuliah" : "Tambah Mata Kuliah"}</DialogTitle>
+          </DialogHeader>
+          <form id="course-form" onSubmit={handleSave} className="space-y-3 py-1">
+            <div className="space-y-1">
+              <Label htmlFor="c-name">Nama Mata Kuliah *</Label>
+              <Input id="c-name" value={form.name} onChange={setField("name")} required />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="c-cred">Total SKS *</Label>
+                <Input id="c-cred" type="number" min={1} value={form.credits} onChange={setField("credits")} required />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="c-sem">Semester</Label>
+                <Input id="c-sem" type="number" min={1} max={8} value={form.semester} onChange={setField("semester")} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="c-curyear">Tahun Kurikulum</Label>
+                <Input id="c-curyear" type="number" min={2000} max={2100} value={form.curriculum_year} onChange={setField("curriculum_year")} />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="c-desc">Deskripsi</Label>
+              <Textarea id="c-desc" value={form.description} onChange={setField("description")} rows={3} />
+            </div>
+            {formError && <p className="text-sm text-destructive">{formError}</p>}
+          </form>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
+            <Button type="submit" form="course-form" disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Hapus Mata Kuliah</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground py-1">
+            Yakin ingin menghapus mata kuliah <span className="font-medium text-foreground">{delTarget?.name}</span>?
+          </p>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
+            <Button variant="destructive" onClick={handleDelete} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

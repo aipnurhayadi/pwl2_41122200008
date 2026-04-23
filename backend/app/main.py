@@ -10,9 +10,9 @@ from fastapi.staticfiles import StaticFiles
 # Use explicit path so .env is found regardless of cwd when uvicorn starts
 load_dotenv(Path(__file__).parent.parent / ".env", override=True)
 
-from app.routers import auth, datasets, rooms, lecturers, courses, time_slots
+from app.routers import auth, datasets, rooms, lecturers, courses, time_slots, classes
 
-app = FastAPI(title="PWL2 Class Scheduler API", version="2.0.0")
+app = FastAPI(title="PWL Class Scheduler API", version="2.0.0")
 
 # ---------------------------------------------------------------------------
 # CORS — always added; origins from ALLOW_ORIGINS env var or fallback to all
@@ -37,6 +37,7 @@ app.include_router(rooms.router)
 app.include_router(lecturers.router)
 app.include_router(courses.router)
 app.include_router(time_slots.router)
+app.include_router(classes.router)
 
 # ---------------------------------------------------------------------------
 # Static files — serve Vite build output in production

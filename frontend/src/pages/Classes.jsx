@@ -1,27 +1,20 @@
-﻿import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, X } from "lucide-react";
+import { Users, Plus, Pencil, Trash2, Loader2, Search, X } from "lucide-react";
 import { useDataset } from "@/context/DatasetContext";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 
-const GENDER_LABELS = { L: "Laki-laki", P: "Perempuan" };
 const EMPTY_FORM = {
-  name: "", front_title: "", back_title: "",
-  nidn: "", nip: "",
-  email: "", phone: "", gender: "",
+  name: "", academic_year: "", semester: "", study_program: "", capacity: "", description: "",
 };
 
-function fullName(r) {
-  return [r.front_title, r.name, r.back_title].filter(Boolean).join(" ");
-}
-
-export default function Lecturers() {
+export default function Classes() {
   const { datasetId: paramId } = useParams();
   const { selected } = useDataset();
   const { token } = useAuth();
@@ -40,7 +33,7 @@ export default function Lecturers() {
     if (!dsId || !token) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/datasets/${dsId}/lecturers/`, {
+      const res = await fetch(`/api/datasets/${dsId}/classes/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) setRows(await res.json());
@@ -55,10 +48,11 @@ export default function Lecturers() {
   const openEdit = (row) => {
     setForm({
       name: row.name ?? "",
-      front_title: row.front_title ?? "", back_title: row.back_title ?? "",
-      nidn: row.nidn ?? "", nip: row.nip ?? "",
-      email: row.email ?? "", phone: row.phone ?? "",
-      gender: row.gender ?? "",
+      academic_year: row.academic_year ?? "",
+      semester: row.semester ?? "",
+      study_program: row.study_program ?? "",
+      capacity: row.capacity ?? "",
+      description: row.description ?? "",
     });
     setFormError(null);
     setDialog({ mode: "edit", row });
@@ -68,20 +62,19 @@ export default function Lecturers() {
     e.preventDefault();
     setSaving(true);
     setFormError(null);
+    const intOrNull = (v) => v !== "" ? parseInt(v, 10) : null;
     const body = {
       name: form.name.trim(),
-      front_title: form.front_title.trim() || null,
-      back_title: form.back_title.trim() || null,
-      nidn: form.nidn.trim() || null,
-      nip: form.nip.trim() || null,
-      email: form.email.trim() || null,
-      phone: form.phone.trim() || null,
-      gender: form.gender || null,
+      academic_year: intOrNull(form.academic_year),
+      semester: intOrNull(form.semester),
+      study_program: form.study_program.trim() || null,
+      capacity: intOrNull(form.capacity),
+      description: form.description.trim() || null,
     };
     const isEdit = dialog?.mode === "edit";
     const url = isEdit
-      ? `/api/datasets/${dsId}/lecturers/${dialog.row.id}`
-      : `/api/datasets/${dsId}/lecturers/`;
+      ? `/api/datasets/${dsId}/classes/${dialog.row.id}`
+      : `/api/datasets/${dsId}/classes/`;
     const res = await fetch(url, {
       method: isEdit ? "PUT" : "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -100,7 +93,7 @@ export default function Lecturers() {
   const handleDelete = async () => {
     if (!delTarget) return;
     setSaving(true);
-    await fetch(`/api/datasets/${dsId}/lecturers/${delTarget.id}`, {
+    await fetch(`/api/datasets/${dsId}/classes/${delTarget.id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -111,7 +104,7 @@ export default function Lecturers() {
 
   const setField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const filtered = rows.filter((r) =>
-    [r.code, r.name, r.nidn, r.email].some((v) => v?.toLowerCase().includes(search.toLowerCase()))
+    [r.code, r.name, r.study_program].some((v) => v?.toLowerCase().includes(search.toLowerCase()))
   );
 
   if (!dsId) {
@@ -127,7 +120,7 @@ export default function Lecturers() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <GraduationCap className="h-6 w-6 text-primary" /> Dosen
+            <Users className="h-6 w-6 text-primary" /> Kelas
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Dataset: <span className="font-medium text-foreground">{selected?.name ?? `#${dsId}`}</span>
@@ -138,7 +131,7 @@ export default function Lecturers() {
 
       <div className="relative max-w-xs">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Cari dosen..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
+        <Input placeholder="Cari kelas..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
         {search && (
           <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2">
             <X className="h-3.5 w-3.5 text-muted-foreground" />
@@ -154,28 +147,30 @@ export default function Lecturers() {
             <TableHeader>
               <TableRow>
                 <TableHead>Kode</TableHead>
-                <TableHead>Nama Lengkap</TableHead>
-                <TableHead>NIDN</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Kelamin</TableHead>
+                <TableHead>Nama Kelas</TableHead>
+                <TableHead>Th. Akademik</TableHead>
+                <TableHead>Sem.</TableHead>
+                <TableHead>Program Studi</TableHead>
+                <TableHead>Kapasitas</TableHead>
                 <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    {search ? "Tidak ada hasil pencarian." : "Belum ada data dosen."}
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    {search ? "Tidak ada hasil pencarian." : "Belum ada data kelas."}
                   </TableCell>
                 </TableRow>
               )}
               {filtered.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono font-medium">{r.code}</TableCell>
-                  <TableCell>{fullName(r)}</TableCell>
-                  <TableCell>{r.nidn ?? <span className="text-muted-foreground text-xs">—</span>}</TableCell>
-                  <TableCell>{r.email ?? <span className="text-muted-foreground text-xs">—</span>}</TableCell>
-                  <TableCell>{r.gender ? GENDER_LABELS[r.gender] : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                  <TableCell>{r.name}</TableCell>
+                  <TableCell>{r.academic_year ?? <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                  <TableCell>{r.semester ?? <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                  <TableCell>{r.study_program ?? <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                  <TableCell>{r.capacity ?? <span className="text-muted-foreground text-xs">—</span>}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1 justify-end">
                       <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
@@ -189,70 +184,54 @@ export default function Lecturers() {
         </div>
       )}
 
+      {/* Add / Edit dialog */}
       <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{dialog?.mode === "edit" ? "Edit Dosen" : "Tambah Dosen"}</DialogTitle>
+            <DialogTitle>{dialog?.mode === "edit" ? "Edit Kelas" : "Tambah Kelas"}</DialogTitle>
           </DialogHeader>
-          <form id="lecturer-form" onSubmit={handleSave} className="grid grid-cols-2 gap-x-4 gap-y-3 py-1">
-            {/* ── Identitas ── */}
-            <p className="col-span-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">Identitas</p>
+          <form id="class-form" onSubmit={handleSave} className="grid grid-cols-2 gap-x-4 gap-y-3 py-1">
             <div className="col-span-2 space-y-1">
-              <Label htmlFor="l-name">Nama *</Label>
-              <Input id="l-name" value={form.name} onChange={setField("name")} required />
+              <Label htmlFor="cl-name">Nama Kelas *</Label>
+              <Input id="cl-name" value={form.name} onChange={setField("name")} required placeholder="REG B1 2025" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="l-front">Gelar Depan</Label>
-              <Input id="l-front" value={form.front_title} onChange={setField("front_title")} placeholder="Dr." />
+              <Label htmlFor="cl-year">Tahun Akademik</Label>
+              <Input id="cl-year" type="number" min={2000} max={2100} value={form.academic_year} onChange={setField("academic_year")} placeholder="2025" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="l-back">Gelar Belakang</Label>
-              <Input id="l-back" value={form.back_title} onChange={setField("back_title")} placeholder="M.Kom." />
+              <Label htmlFor="cl-sem">Semester</Label>
+              <Input id="cl-sem" type="number" min={1} max={8} value={form.semester} onChange={setField("semester")} placeholder="1" />
+            </div>
+            <div className="col-span-2 space-y-1">
+              <Label htmlFor="cl-prodi">Program Studi</Label>
+              <Input id="cl-prodi" value={form.study_program} onChange={setField("study_program")} placeholder="Teknik Informatika" />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="l-gender">Jenis Kelamin</Label>
-              <Select id="l-gender" value={form.gender} onChange={setField("gender")}>
-                <option value="">— Pilih —</option>
-                <option value="L">Laki-laki</option>
-                <option value="P">Perempuan</option>
-              </Select>
+              <Label htmlFor="cl-cap">Kapasitas</Label>
+              <Input id="cl-cap" type="number" min={1} value={form.capacity} onChange={setField("capacity")} placeholder="40" />
             </div>
-            {/* ── Akademik ── */}
-            <p className="col-span-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">Akademik</p>
-            <div className="space-y-1">
-              <Label htmlFor="l-nidn">NIDN</Label>
-              <Input id="l-nidn" value={form.nidn} onChange={setField("nidn")} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="l-nip">NIP</Label>
-              <Input id="l-nip" value={form.nip} onChange={setField("nip")} />
-            </div>
-            {/* ── Kontak ── */}
-            <p className="col-span-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">Kontak</p>
-            <div className="space-y-1">
-              <Label htmlFor="l-email">Email</Label>
-              <Input id="l-email" type="email" value={form.email} onChange={setField("email")} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="l-phone">No. Telepon</Label>
-              <Input id="l-phone" value={form.phone} onChange={setField("phone")} />
+            <div className="col-span-2 space-y-1">
+              <Label htmlFor="cl-desc">Deskripsi</Label>
+              <Textarea id="cl-desc" value={form.description} onChange={setField("description")} rows={2} />
             </div>
             {formError && <p className="col-span-2 text-sm text-destructive">{formError}</p>}
           </form>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
-            <Button type="submit" form="lecturer-form" disabled={saving}>
+            <Button type="submit" form="class-form" disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Delete dialog */}
       <Dialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Hapus Dosen</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Hapus Kelas</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground py-1">
-            Yakin ingin menghapus dosen <span className="font-medium text-foreground">{delTarget ? fullName(delTarget) : ""}</span>?
+            Yakin ingin menghapus kelas <span className="font-medium text-foreground">{delTarget?.name}</span>?
           </p>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>

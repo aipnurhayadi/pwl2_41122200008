@@ -231,7 +231,7 @@ export default function Items() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-3">
             <div className="space-y-2">
               <Label htmlFor="name">Name <span className="text-destructive">*</span></Label>
               <Input

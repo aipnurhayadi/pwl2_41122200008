@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -9,10 +11,24 @@ from app.dependencies import get_dataset_for_user
 router = APIRouter(prefix="/api/datasets/{dataset_id}/lecturers", tags=["lecturers"])
 
 
-def _get_lecturer(lecturer_id: int, dataset: models.Dataset, db: Session) -> models.Lecturer:
+def _generate_lecturer_code(dataset_id: int, db: Session) -> str:
+    """Auto-generate a sequential lecturer code like DSN001.
+    Counts ALL rows (including soft-deleted) to avoid reuse.
+    """
+    count = db.query(models.Lecturer).filter(
+        models.Lecturer.dataset_id == dataset_id
+    ).count()
+    return f"DSN{count + 1:03d}"
+
+
+def _get_active_lecturer(lecturer_id: int, dataset: models.Dataset, db: Session) -> models.Lecturer:
     lecturer = (
         db.query(models.Lecturer)
-        .filter(models.Lecturer.id == lecturer_id, models.Lecturer.dataset_id == dataset.id)
+        .filter(
+            models.Lecturer.id == lecturer_id,
+            models.Lecturer.dataset_id == dataset.id,
+            models.Lecturer.deleted_at.is_(None),
+        )
         .first()
     )
     if not lecturer:
@@ -25,7 +41,11 @@ def list_lecturers(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
-    return db.query(models.Lecturer).filter(models.Lecturer.dataset_id == dataset.id).all()
+    return (
+        db.query(models.Lecturer)
+        .filter(models.Lecturer.dataset_id == dataset.id, models.Lecturer.deleted_at.is_(None))
+        .all()
+    )
 
 
 @router.post("/", response_model=schemas.LecturerRead, status_code=status.HTTP_201_CREATED)
@@ -34,7 +54,9 @@ def create_lecturer(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
-    lecturer = models.Lecturer(dataset_id=dataset.id, **payload.model_dump())
+    data = payload.model_dump()
+    data["code"] = _generate_lecturer_code(dataset.id, db)
+    lecturer = models.Lecturer(dataset_id=dataset.id, **data)
     db.add(lecturer)
     try:
         db.commit()
@@ -51,7 +73,7 @@ def get_lecturer(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
-    return _get_lecturer(lecturer_id, dataset, db)
+    return _get_active_lecturer(lecturer_id, dataset, db)
 
 
 @router.put("/{lecturer_id}", response_model=schemas.LecturerRead)
@@ -61,10 +83,16 @@ def update_lecturer(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
-    lecturer = _get_lecturer(lecturer_id, dataset, db)
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    lecturer = _get_active_lecturer(lecturer_id, dataset, db)
+    updates = payload.model_dump(exclude_unset=True)
+    updates.pop("code", None)  # code is auto-generated, never updatable
+    for k, v in updates.items():
         setattr(lecturer, k, v)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="A lecturer with this code already exists in the dataset")
     db.refresh(lecturer)
     return lecturer
 
@@ -75,9 +103,32 @@ def delete_lecturer(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
-    lecturer = _get_lecturer(lecturer_id, dataset, db)
-    db.delete(lecturer)
+    lecturer = _get_active_lecturer(lecturer_id, dataset, db)
+    lecturer.deleted_at = datetime.now(timezone.utc)
     db.commit()
+
+
+@router.patch("/{lecturer_id}/restore", response_model=schemas.LecturerRead)
+def restore_lecturer(
+    lecturer_id: int,
+    dataset: models.Dataset = Depends(get_dataset_for_user),
+    db: Session = Depends(get_db),
+):
+    lecturer = (
+        db.query(models.Lecturer)
+        .filter(
+            models.Lecturer.id == lecturer_id,
+            models.Lecturer.dataset_id == dataset.id,
+            models.Lecturer.deleted_at.isnot(None),
+        )
+        .first()
+    )
+    if not lecturer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deleted lecturer not found")
+    lecturer.deleted_at = None
+    db.commit()
+    db.refresh(lecturer)
+    return lecturer
 
 
 # ---------------------------------------------------------------------------
@@ -90,10 +141,10 @@ def assign_course(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
-    lecturer = _get_lecturer(lecturer_id, dataset, db)
+    lecturer = _get_active_lecturer(lecturer_id, dataset, db)
     course = (
         db.query(models.Course)
-        .filter(models.Course.id == course_id, models.Course.dataset_id == dataset.id)
+        .filter(models.Course.id == course_id, models.Course.dataset_id == dataset.id, models.Course.deleted_at.is_(None))
         .first()
     )
     if not course:
@@ -110,7 +161,7 @@ def unassign_course(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
-    lecturer = _get_lecturer(lecturer_id, dataset, db)
+    lecturer = _get_active_lecturer(lecturer_id, dataset, db)
     course = (
         db.query(models.Course)
         .filter(models.Course.id == course_id, models.Course.dataset_id == dataset.id)
