@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
 import { useDataset } from "@/context/DatasetContext";
+import ModeToggle from "@/components/ModeToggle";
 
 const masterLinks = [
   { path: "rooms", label: "Ruangan", icon: Building2 },
@@ -321,14 +322,18 @@ function DatasetPicker({ collapsed }) {
             <div className="space-y-1">
               <Label htmlFor="ds-visibility">Visibility</Label>
               <Select
-                id="ds-visibility"
                 value={form.visibility}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, visibility: e.target.value }))
+                onValueChange={(v) =>
+                  setForm((prev) => ({ ...prev, visibility: v }))
                 }
               >
-                <option value="PRIVATE">PRIVATE</option>
-                <option value="PUBLIC">PUBLIC</option>
+                <SelectTrigger id="ds-visibility">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value="PRIVATE">PRIVATE</SelectItem>
+                  <SelectItem value="PUBLIC">PUBLIC</SelectItem>
+                </SelectPopup>
               </Select>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -450,6 +455,7 @@ export default function Sidebar() {
             <User className="h-4 w-4 shrink-0" />
             <span className="truncate">{user?.name ?? "..."}</span>
           </div>
+          <ModeToggle collapsed={false} />
           <Button
             variant="ghost"
             className="w-full justify-start text-destructive hover:text-destructive"
@@ -517,6 +523,7 @@ export default function Sidebar() {
               <span className="truncate">{user?.name ?? "..."}</span>
             </div>
           )}
+          <ModeToggle collapsed={collapsed} />
           <Button
             variant="ghost"
             className={`w-full text-destructive hover:text-destructive ${collapsed ? "justify-center px-0" : "justify-start"}`}

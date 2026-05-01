@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
@@ -219,17 +219,19 @@ export default function Lecturers() {
             <div className="space-y-1">
               <Label htmlFor="employee_id">Karyawan *</Label>
               <Select
-                id="employee_id"
                 value={form.employee_id}
-                onChange={(e) => setForm({ employee_id: e.target.value })}
-                required
+                onValueChange={(v) => setForm({ employee_id: v })}
               >
-                <option value="">— Pilih Karyawan —</option>
-                {employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.employee_code} - {emp.name}
-                  </option>
-                ))}
+                <SelectTrigger id="employee_id">
+                  <SelectValue placeholder="— Pilih Karyawan —" />
+                </SelectTrigger>
+                <SelectPopup>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>
+                      {emp.employee_code} - {emp.name}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
               </Select>
             </div>
             {formError && <p className="text-sm text-destructive">{formError}</p>}
