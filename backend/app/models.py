@@ -35,6 +35,11 @@ class UserRoleEnum(str, enum.Enum):
     ADMIN = "ADMIN"
 
 
+class DatasetVisibilityEnum(str, enum.Enum):
+    PUBLIC = "PUBLIC"
+    PRIVATE = "PRIVATE"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -111,6 +116,13 @@ class Dataset(SoftDeleteMixin, Base):
     code = Column(String(50), nullable=False, unique=True, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
+    visibility = Column(
+        Enum(DatasetVisibilityEnum),
+        nullable=False,
+        default=DatasetVisibilityEnum.PRIVATE,
+        server_default=DatasetVisibilityEnum.PRIVATE.value,
+        index=True,
+    )
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 

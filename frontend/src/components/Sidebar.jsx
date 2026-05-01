@@ -18,11 +18,23 @@ import {
   Loader2,
   Database,
   Users,
+  Eye,
 } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
 import { useDataset } from "@/context/DatasetContext";
 
@@ -36,14 +48,27 @@ const masterLinks = [
 
 // ── Inline dataset dropdown ───────────────────────────────────────────────────
 function DatasetPicker({ collapsed }) {
-  const { datasets, selected, loading, selectDataset, createDataset, updateDataset, deleteDataset } =
-    useDataset();
+  const {
+    datasets,
+    selected,
+    loading,
+    selectDataset,
+    createDataset,
+    updateDataset,
+    deleteDataset,
+  } = useDataset();
   const navigate = useNavigate();
   const { datasetId } = useParams();
 
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState(null); // "add" | { edit: dataset }
-  const [inputVal, setInputVal] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState("add");
+  const [editingDataset, setEditingDataset] = useState(null);
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    visibility: "PRIVATE",
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // dataset id
@@ -64,7 +89,6 @@ function DatasetPicker({ collapsed }) {
     const handler = (e) => {
       if (dropRef.current && !dropRef.current.contains(e.target)) {
         setOpen(false);
-        setMode(null);
         setError(null);
       }
     };
@@ -75,56 +99,88 @@ function DatasetPicker({ collapsed }) {
   const handleSelect = (ds) => {
     selectDataset(ds);
     setOpen(false);
-    setMode(null);
     // navigate to same page but new datasetId
     const segments = window.location.pathname.split("/").filter(Boolean);
     const page = segments.length >= 2 ? segments[1] : "rooms";
     navigate(`/${ds.id}/${page}`);
   };
 
-  const startAdd = (e) => {
+  const openAddModal = (e) => {
     e.stopPropagation();
-    setMode("add");
-    setInputVal("");
+    setFormMode("add");
+    setEditingDataset(null);
+    setForm({ name: "", description: "", visibility: "PRIVATE" });
     setError(null);
+    setFormOpen(true);
   };
 
-  const startEdit = (e, ds) => {
+  const openEditModal = (e, ds) => {
     e.stopPropagation();
-    setMode({ edit: ds });
-    setInputVal(ds.name);
+    setFormMode("edit");
+    setEditingDataset(ds);
+    setForm({
+      name: ds.name ?? "",
+      description: ds.description ?? "",
+      visibility: ds.visibility ?? "PRIVATE",
+    });
     setError(null);
+    setFormOpen(true);
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!inputVal.trim()) return;
+    if (!form.name.trim()) return;
     setSaving(true);
     setError(null);
-    if (mode === "add") {
-      const res = await createDataset(inputVal.trim());
-      if (res.error) { setError(res.error); setSaving(false); return; }
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim() || null,
+      visibility: form.visibility,
+    };
+    if (formMode === "add") {
+      const res = await createDataset(payload);
+      if (res.error) {
+        setError(res.error);
+        setSaving(false);
+        return;
+      }
       selectDataset(res.data);
       const segments = window.location.pathname.split("/").filter(Boolean);
       const page = segments.length >= 2 ? segments[1] : "rooms";
       navigate(`/${res.data.id}/${page}`);
     } else {
-      const res = await updateDataset(mode.edit.id, inputVal.trim());
-      if (res.error) { setError(res.error); setSaving(false); return; }
+      const res = await updateDataset(editingDataset.id, payload);
+      if (res.error) {
+        setError(res.error);
+        setSaving(false);
+        return;
+      }
     }
     setSaving(false);
-    setMode(null);
+    setFormOpen(false);
+    setEditingDataset(null);
   };
 
   const handleDelete = async (e, ds) => {
     e.stopPropagation();
-    if (confirmDelete !== ds.id) { setConfirmDelete(ds.id); return; }
+    if (confirmDelete !== ds.id) {
+      setConfirmDelete(ds.id);
+      return;
+    }
     setSaving(true);
     const res = await deleteDataset(ds.id);
     setSaving(false);
     setConfirmDelete(null);
-    if (res.error) { setError(res.error); return; }
+    if (res.error) {
+      setError(res.error);
+      return;
+    }
     if (!selected) navigate("/rooms");
+  };
+
+  const openDetail = (e, dsId) => {
+    e.stopPropagation();
+    navigate(`/datasets/${dsId}`);
   };
 
   if (collapsed) {
@@ -143,14 +199,19 @@ function DatasetPicker({ collapsed }) {
     <div className="px-2 pb-1" ref={dropRef}>
       {/* Trigger */}
       <button
-        onClick={() => { setOpen((v) => !v); setMode(null); setError(null); }}
+        onClick={() => {
+          setOpen((v) => !v);
+          setError(null);
+        }}
         className="flex w-full items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm hover:bg-muted transition-colors"
       >
         <Database className="h-4 w-4 text-primary shrink-0" />
         <span className="flex-1 truncate text-left">
-          {loading ? "Memuat..." : selected?.name ?? "Pilih Dataset"}
+          {loading ? "Memuat..." : (selected?.name ?? "Pilih Dataset")}
         </span>
-        <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {/* Dropdown panel */}
@@ -159,7 +220,9 @@ function DatasetPicker({ collapsed }) {
           {/* Dataset list */}
           <div className="max-h-52 overflow-y-auto">
             {datasets.length === 0 && !loading && (
-              <p className="px-3 py-2 text-muted-foreground text-xs">Belum ada dataset</p>
+              <p className="px-3 py-2 text-muted-foreground text-xs">
+                Belum ada dataset
+              </p>
             )}
             {datasets.map((ds) => (
               <div
@@ -169,45 +232,37 @@ function DatasetPicker({ collapsed }) {
                 }`}
                 onClick={() => handleSelect(ds)}
               >
-                {selected?.id === ds.id && <Check className="h-3.5 w-3.5 text-primary shrink-0" />}
-                {selected?.id !== ds.id && <span className="w-3.5 shrink-0" />}
-
-                {/* Inline edit input */}
-                {mode?.edit?.id === ds.id ? (
-                  <form onSubmit={handleSave} className="flex-1 flex gap-1" onClick={(e) => e.stopPropagation()}>
-                    <Input
-                      autoFocus
-                      value={inputVal}
-                      onChange={(e) => setInputVal(e.target.value)}
-                      className="h-6 text-xs py-0 px-1.5"
-                    />
-                    <Button type="submit" size="icon" className="h-6 w-6 shrink-0" disabled={saving}>
-                      {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                    </Button>
-                  </form>
-                ) : (
-                  <span className="flex-1 truncate">{ds.name}</span>
+                {selected?.id === ds.id && (
+                  <Check className="h-3.5 w-3.5 text-primary shrink-0" />
                 )}
+                {selected?.id !== ds.id && <span className="w-3.5 shrink-0" />}
+                <span className="flex-1 truncate">{ds.name}</span>
+
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground hidden md:inline ">
+                  {ds.visibility}
+                </span>
 
                 {/* Edit / Delete actions */}
-                {mode?.edit?.id !== ds.id && (
-                  <span className="hidden group-hover:flex items-center gap-0.5 shrink-0">
-                    <button
-                      onClick={(e) => startEdit(e, ds)}
-                      className="p-1 rounded hover:bg-background/70"
-                      title="Edit"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={(e) => handleDelete(e, ds)}
-                      className={`p-1 rounded hover:bg-background/70 ${confirmDelete === ds.id ? "text-destructive" : ""}`}
-                      title={confirmDelete === ds.id ? "Klik lagi untuk konfirmasi" : "Hapus"}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </span>
-                )}
+                <span className="hidden group-hover:flex items-center gap-0.5 shrink-0">
+                  <button
+                    onClick={(e) => openEditModal(e, ds)}
+                    className="p-1 rounded hover:bg-background/70 cursor-pointer hover:cursor-pointer"
+                    title="Edit"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={(e) => handleDelete(e, ds)}
+                    className={`p-1 rounded hover:bg-background/70 cursor-pointer hover:cursor-pointer ${confirmDelete === ds.id ? "text-destructive" : ""}`}
+                    title={
+                      confirmDelete === ds.id
+                        ? "Klik lagi untuk konfirmasi"
+                        : "Hapus"
+                    }
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </span>
               </div>
             ))}
           </div>
@@ -215,32 +270,79 @@ function DatasetPicker({ collapsed }) {
           <Separator />
 
           {/* Add new */}
-          {mode === "add" ? (
-            <form onSubmit={handleSave} className="flex gap-1 px-2 py-1.5">
-              <Input
-                autoFocus
-                placeholder="Nama dataset baru"
-                value={inputVal}
-                onChange={(e) => setInputVal(e.target.value)}
-                className="h-7 text-xs"
-              />
-              <Button type="submit" size="icon" className="h-7 w-7 shrink-0" disabled={saving}>
-                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-              </Button>
-            </form>
-          ) : (
-            <button
-              onClick={startAdd}
-              className="flex w-full items-center gap-2 px-3 py-2 text-primary hover:bg-accent transition-colors text-xs font-medium"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Tambah Dataset
-            </button>
-          )}
+          <button
+            onClick={openAddModal}
+            className="flex w-full items-center gap-2 px-3 py-2 text-primary hover:bg-accent transition-colors text-xs font-medium"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Tambah Dataset
+          </button>
 
-          {error && <p className="px-3 pb-2 text-destructive text-xs">{error}</p>}
+          {error && (
+            <p className="px-3 pb-2 text-destructive text-xs">{error}</p>
+          )}
         </div>
       )}
+
+      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {formMode === "edit" ? "Edit Dataset" : "Tambah Dataset"}
+            </DialogTitle>
+          </DialogHeader>
+          <form
+            id="dataset-form"
+            onSubmit={handleSave}
+            className="space-y-3 py-1"
+          >
+            <div className="space-y-1">
+              <Label htmlFor="ds-name">Nama Dataset *</Label>
+              <Input
+                id="ds-name"
+                value={form.name}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, name: e.target.value }))
+                }
+                required
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ds-description">Description</Label>
+              <Textarea
+                id="ds-description"
+                rows={3}
+                value={form.description}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, description: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ds-visibility">Visibility</Label>
+              <Select
+                id="ds-visibility"
+                value={form.visibility}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, visibility: e.target.value }))
+                }
+              >
+                <option value="PRIVATE">PRIVATE</option>
+                <option value="PUBLIC">PUBLIC</option>
+              </Select>
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </form>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>
+              Batal
+            </DialogClose>
+            <Button type="submit" form="dataset-form" disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -293,7 +395,10 @@ export default function Sidebar() {
     <>
       {/* ── Mobile topbar ──────────────────────────────────── */}
       <header className="md:hidden sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur px-4">
-        <Link to="/rooms" className="flex items-center gap-2 font-semibold text-lg">
+        <Link
+          to="/rooms"
+          className="flex items-center gap-2 font-semibold text-lg"
+        >
           <CalendarDays className="h-5 w-5 text-primary" />
           <span>TIMETABLE TOOL</span>
         </Link>
@@ -304,21 +409,32 @@ export default function Sidebar() {
 
       {/* ── Mobile overlay ─────────────────────────────────── */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 md:hidden" onClick={() => setMobileOpen(false)} />
+        <div
+          className="fixed inset-0 z-50 bg-black/50 md:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
       )}
 
       {/* ── Mobile drawer ──────────────────────────────────── */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-background border-r transition-transform duration-200 md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-background border-r transition-transform duration-200 md:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex h-14 items-center justify-between px-4 border-b">
-          <Link to="/rooms" className="flex items-center gap-2 font-semibold text-base" onClick={() => setMobileOpen(false)}>
+          <Link
+            to="/rooms"
+            className="flex items-center gap-2 font-semibold text-base"
+            onClick={() => setMobileOpen(false)}
+          >
             <CalendarDays className="h-5 w-5 text-primary" />
             <span>TIMETABLE TOOL</span>
           </Link>
-          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMobileOpen(false)}
+          >
             <X className="h-5 w-5" />
           </Button>
         </div>
@@ -337,7 +453,10 @@ export default function Sidebar() {
           <Button
             variant="ghost"
             className="w-full justify-start text-destructive hover:text-destructive"
-            onClick={() => { setMobileOpen(false); logout(); }}
+            onClick={() => {
+              setMobileOpen(false);
+              logout();
+            }}
           >
             <LogOut className="h-4 w-4 mr-2" />
             Keluar
@@ -348,7 +467,7 @@ export default function Sidebar() {
       {/* ── Desktop sidebar ────────────────────────────────── */}
       <aside
         className={`hidden md:flex flex-col border-r bg-background transition-all duration-200 shrink-0 ${
-          collapsed ? "w-[60px]" : "w-64"
+          collapsed ? "w-[72px]" : "w-72"
         }`}
       >
         {/* Brand */}
@@ -359,11 +478,19 @@ export default function Sidebar() {
             </Link>
           ) : (
             <>
-              <Link to="/rooms" className="flex items-center gap-2 font-semibold text-base min-w-0">
+              <Link
+                to="/rooms"
+                className="flex items-center gap-2 font-semibold text-base min-w-0"
+              >
                 <CalendarDays className="h-5 w-5 text-primary shrink-0" />
                 <span className="truncate">TIMETABLE TOOL</span>
               </Link>
-              <Button variant="ghost" size="icon" className="shrink-0" onClick={() => setCollapsed(true)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0"
+                onClick={() => setCollapsed(true)}
+              >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
             </>
@@ -400,7 +527,12 @@ export default function Sidebar() {
             {!collapsed && <span className="ml-2">Keluar</span>}
           </Button>
           {collapsed && (
-            <Button variant="ghost" className="w-full justify-center px-0" title="Perluas sidebar" onClick={() => setCollapsed(false)}>
+            <Button
+              variant="ghost"
+              className="w-full justify-center px-0"
+              title="Perluas sidebar"
+              onClick={() => setCollapsed(false)}
+            >
               <Menu className="h-4 w-4" />
             </Button>
           )}
@@ -409,4 +541,3 @@ export default function Sidebar() {
     </>
   );
 }
-

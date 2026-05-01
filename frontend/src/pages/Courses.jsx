@@ -9,10 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
+import DataTablePagination from "@/components/DataTablePagination";
 
 const EMPTY_FORM = {
   name: "", credits: "", semester: "", curriculum_year: "", description: "",
 };
+const PAGE_SIZE = 10;
 
 export default function Courses() {
   const { datasetId: paramId } = useParams();
@@ -28,6 +31,7 @@ export default function Courses() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     if (!dsId || !token) return;
@@ -104,6 +108,16 @@ export default function Courses() {
   const filtered = rows.filter((r) =>
     [r.code, r.name].some((v) => v?.toLowerCase().includes(search.toLowerCase()))
   );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, dsId]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   if (!dsId) {
     return (
@@ -120,9 +134,7 @@ export default function Courses() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <BookOpen className="h-6 w-6 text-primary" /> Mata Kuliah
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Dataset: <span className="font-medium text-foreground">{selected?.name ?? `#${dsId}`}</span>
-          </p>
+          <DatasetHeaderInfo datasetId={dsId} datasetName={selected?.name} />
         </div>
         <Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" /> Tambah</Button>
       </div>
@@ -159,7 +171,7 @@ export default function Courses() {
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((r) => (
+              {paginated.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono font-medium">{r.code}</TableCell>
                   <TableCell>{r.name}</TableCell>
@@ -175,6 +187,13 @@ export default function Courses() {
               ))}
             </TableBody>
           </Table>
+          <DataTablePagination
+            page={page}
+            setPage={setPage}
+            totalItems={filtered.length}
+            pageSize={PAGE_SIZE}
+            itemLabel="mata kuliah"
+          />
         </div>
       )}
 

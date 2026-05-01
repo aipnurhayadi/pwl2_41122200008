@@ -13,6 +13,7 @@ import Courses from "@/pages/Courses";
 import TimeSlots from "@/pages/TimeSlots";
 import Classes from "@/pages/Classes";
 import MyDatasets from "@/pages/MyDatasets";
+import DatasetDetail from "@/pages/DatasetDetail";
 
 function AppRoutes() {
   const { token, user } = useAuth();
@@ -28,6 +29,7 @@ function AppRoutes() {
           <Route path="/login" element={<Navigate to="/my-datasets" replace />} />
           <Route path="/register" element={<Navigate to="/my-datasets" replace />} />
           <Route path="/my-datasets" element={<ProtectedRoute><MyDatasets /></ProtectedRoute>} />
+          <Route path="/datasets/:datasetId" element={<ProtectedRoute><DatasetDetail /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/my-datasets" replace />} />
         </Routes>
       );
@@ -44,6 +46,7 @@ function AppRoutes() {
               <Route path="/register" element={<Navigate to="/rooms" replace />} />
               <Route path="/datasets" element={<Navigate to="/rooms" replace />} />
               <Route path="/my-datasets" element={<Navigate to="/rooms" replace />} />
+              <Route path="/datasets/:datasetId" element={<ProtectedRoute><DatasetDetail /></ProtectedRoute>} />
               <Route path="/:datasetId/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
               <Route path="/:datasetId/lecturers" element={<ProtectedRoute><Lecturers /></ProtectedRoute>} />
               <Route path="/:datasetId/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
@@ -70,6 +73,7 @@ function AppRoutes() {
           <Route path="/login" element={<Login />} />
           <Route path="/lecturer-login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/datasets/:datasetId" element={<DatasetDetail />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>

@@ -7,12 +7,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
+import DataTablePagination from "@/components/DataTablePagination";
 import { Select } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 
 const ROOM_TYPES = ["TEORI", "LABORATORIUM", "AULA", "SEMINAR"];
 const EMPTY_FORM = { building_code: "", floor: "", room_number: "", capacity: "", room_type: "" };
+const PAGE_SIZE = 10;
 
 function roomTypeVariant(t) {
   if (t === "LABORATORIUM") return "destructive";
@@ -35,6 +38,7 @@ export default function Rooms() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     if (!dsId || !token) return;
@@ -111,6 +115,16 @@ export default function Rooms() {
   const filtered = rows.filter((r) =>
     [r.code, r.building_name].some((v) => v?.toLowerCase().includes(search.toLowerCase()))
   );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, dsId]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   if (!dsId) {
     return (
@@ -127,9 +141,7 @@ export default function Rooms() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Building2 className="h-6 w-6 text-primary" /> Ruangan
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Dataset: <span className="font-medium text-foreground">{selected?.name ?? `#${dsId}`}</span>
-          </p>
+          <DatasetHeaderInfo datasetId={dsId} datasetName={selected?.name} />
         </div>
         <Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" /> Tambah</Button>
       </div>
@@ -167,7 +179,7 @@ export default function Rooms() {
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((r) => (
+              {paginated.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono font-medium">{r.code}</TableCell>
                   <TableCell>{r.building_name}</TableCell>
@@ -192,6 +204,13 @@ export default function Rooms() {
               ))}
             </TableBody>
           </Table>
+          <DataTablePagination
+            page={page}
+            setPage={setPage}
+            totalItems={filtered.length}
+            pageSize={PAGE_SIZE}
+            itemLabel="ruangan"
+          />
         </div>
       )}
 

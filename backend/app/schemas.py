@@ -6,6 +6,7 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr
 
 from app.models import (
+    DatasetVisibilityEnum,
     DayEnum,
     GenderEnum,
     RoomTypeEnum,
@@ -86,11 +87,13 @@ class PATCreated(PATRead):
 class DatasetCreate(BaseModel):
     name: str
     description: Optional[str] = None
+    visibility: DatasetVisibilityEnum = DatasetVisibilityEnum.PRIVATE
 
 
 class DatasetUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
+    visibility: Optional[DatasetVisibilityEnum] = None
 
 
 class DatasetRead(BaseModel):
@@ -98,11 +101,63 @@ class DatasetRead(BaseModel):
     code: str
     name: str
     description: Optional[str]
+    visibility: DatasetVisibilityEnum
     created_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class DatasetTreeRoom(BaseModel):
+    id: int
+    code: str
+    building_name: str
+    room_type: Optional[RoomTypeEnum] = None
+
+    model_config = {"from_attributes": True}
+
+
+class DatasetTreeLecturer(BaseModel):
+    id: int
+    code: str
+    employee_code: str
+    name: str
+
+
+class DatasetTreeCourse(BaseModel):
+    id: int
+    code: str
+    name: str
+    credits: int
+
+    model_config = {"from_attributes": True}
+
+
+class DatasetTreeTimeSlot(BaseModel):
+    id: int
+    day: DayEnum
+    start_time: time
+    end_time: time
+
+    model_config = {"from_attributes": True}
+
+
+class DatasetTreeClass(BaseModel):
+    id: int
+    code: str
+    name: str
+
+    model_config = {"from_attributes": True}
+
+
+class DatasetTreeRead(BaseModel):
+    dataset: DatasetRead
+    rooms: list[DatasetTreeRoom]
+    lecturers: list[DatasetTreeLecturer]
+    courses: list[DatasetTreeCourse]
+    time_slots: list[DatasetTreeTimeSlot]
+    classes: list[DatasetTreeClass]
 
 
 # ===========================================================================

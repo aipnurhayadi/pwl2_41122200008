@@ -11,26 +11,7 @@ bearer = HTTPBearer(auto_error=False)
 WRITE_ALLOWED_ROLES = (models.UserRoleEnum.ADMIN.value,)
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
-    db: Session = Depends(get_db),
-) -> models.User:
-    """
-    Resolves the current user from either:
-    1. A JWT access token
-    2. A Personal Access Token (static bearer token)
-    """
-    exc = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Not authenticated",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    if not credentials:
-        raise exc
-
-    token = credentials.credentials
-
+def _resolve_user_from_token(token: str, db: Session) -> models.User | None:
     # --- Try JWT first ---
     user_id = auth.decode_access_token(token)
     if user_id is not None:
@@ -58,7 +39,57 @@ def get_current_user(
         db.commit()
         return pat.user
 
+    return None
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+    db: Session = Depends(get_db),
+) -> models.User:
+    """
+    Resolves the current user from either:
+    1. A JWT access token
+    2. A Personal Access Token (static bearer token)
+    """
+    exc = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+    if not credentials:
+        raise exc
+
+    token = credentials.credentials
+
+    user = _resolve_user_from_token(token, db)
+    if user:
+        return user
+
     raise exc
+
+
+def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
+    db: Session = Depends(get_db),
+) -> models.User | None:
+    """
+    Resolves current user if bearer token is provided.
+    Returns None when there is no Authorization header.
+    """
+    if not credentials:
+        return None
+
+    token = credentials.credentials
+    user = _resolve_user_from_token(token, db)
+    if user:
+        return user
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not authenticated",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 def get_dataset_for_user(
