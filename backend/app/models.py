@@ -30,6 +30,11 @@ lecturer_courses = Table(
 # ---------------------------------------------------------------------------
 # Users & Auth
 # ---------------------------------------------------------------------------
+class UserRoleEnum(str, enum.Enum):
+    LECTURER = "LECTURER"
+    ADMIN = "ADMIN"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -37,12 +42,35 @@ class User(Base):
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False, unique=True, index=True)
     password_hash = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False, default=UserRoleEnum.ADMIN.value, server_default=UserRoleEnum.ADMIN.value, index=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     datasets = relationship("Dataset", back_populates="user", cascade="all, delete-orphan")
     personal_access_tokens = relationship("PersonalAccessToken", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    employee_profile = relationship("Employee", back_populates="user", uselist=False)
+
+
+class Employee(Base):
+    __tablename__ = "employees"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    employee_code = Column(String(50), nullable=False, unique=True, index=True)
+    name = Column(String(255), nullable=False)
+    nidn = Column(String(20), nullable=True)
+    nip = Column(String(20), nullable=True)
+    front_title = Column(String(50), nullable=True)
+    back_title = Column(String(100), nullable=True)
+    email = Column(String(255), nullable=True)
+    phone = Column(String(20), nullable=True)
+    gender = Column(String(1), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    user = relationship("User", back_populates="employee_profile")
+    lecturer_assignments = relationship("Lecturer", back_populates="employee", cascade="all, delete-orphan")
 
 
 class PersonalAccessToken(Base):
@@ -80,6 +108,7 @@ class Dataset(SoftDeleteMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    code = Column(String(50), nullable=False, unique=True, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
@@ -148,22 +177,19 @@ class Lecturer(SoftDeleteMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
     dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
-    name = Column(String(255), nullable=False)
+    employee_id = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), nullable=False, index=True)
     code = Column(String(50), nullable=False)
-    nidn = Column(String(20), nullable=True)
-    nip = Column(String(20), nullable=True)
-    front_title = Column(String(50), nullable=True)
-    back_title = Column(String(100), nullable=True)
-    email = Column(String(255), nullable=True)
-    phone = Column(String(20), nullable=True)
-    gender = Column(Enum(GenderEnum), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     dataset = relationship("Dataset", back_populates="lecturers")
+    employee = relationship("Employee", back_populates="lecturer_assignments")
     courses = relationship("Course", secondary=lecturer_courses, back_populates="lecturers")
 
-    __table_args__ = (UniqueConstraint("dataset_id", "code", name="uq_lecturer_dataset_code"),)
+    __table_args__ = (
+        UniqueConstraint("dataset_id", "code", name="uq_lecturer_dataset_code"),
+        UniqueConstraint("dataset_id", "employee_id", name="uq_lecturer_dataset_employee"),
+    )
 
 
 class Course(SoftDeleteMixin, Base):

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.dependencies import get_dataset_for_user
+from app.dependencies import get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
 
 router = APIRouter(prefix="/api/datasets/{dataset_id}/courses", tags=["courses"])
 
@@ -51,6 +51,7 @@ def list_courses(
 @router.post("/", response_model=schemas.CourseRead, status_code=status.HTTP_201_CREATED)
 def create_course(
     payload: schemas.CourseCreate,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -80,6 +81,7 @@ def get_course(
 def update_course(
     course_id: int,
     payload: schemas.CourseUpdate,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -100,6 +102,7 @@ def update_course(
 @router.delete("/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_course(
     course_id: int,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -111,6 +114,7 @@ def delete_course(
 @router.patch("/{course_id}/restore", response_model=schemas.CourseRead)
 def restore_course(
     course_id: int,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):

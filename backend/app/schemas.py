@@ -25,6 +25,7 @@ class UserRead(BaseModel):
     id: int
     name: str
     email: str
+    role: str
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -32,6 +33,12 @@ class UserRead(BaseModel):
 
 class LoginRequest(BaseModel):
     email: EmailStr
+    password: str
+
+
+class LecturerLoginRequest(BaseModel):
+    dataset_id: int
+    code: str
     password: str
 
 
@@ -88,6 +95,7 @@ class DatasetUpdate(BaseModel):
 
 class DatasetRead(BaseModel):
     id: int
+    code: str
     name: str
     description: Optional[str]
     created_at: datetime
@@ -134,9 +142,9 @@ class RoomRead(BaseModel):
 
 
 # ===========================================================================
-# Lecturers
+# Employees
 # ===========================================================================
-class LecturerCreate(BaseModel):
+class EmployeeCreate(BaseModel):
     name: str
     nidn: Optional[str] = None
     nip: Optional[str] = None
@@ -147,7 +155,7 @@ class LecturerCreate(BaseModel):
     gender: Optional[GenderEnum] = None
 
 
-class LecturerUpdate(BaseModel):
+class EmployeeUpdate(BaseModel):
     name: Optional[str] = None
     nidn: Optional[str] = None
     nip: Optional[str] = None
@@ -158,9 +166,39 @@ class LecturerUpdate(BaseModel):
     gender: Optional[GenderEnum] = None
 
 
+class EmployeeRead(BaseModel):
+    id: int
+    employee_code: str
+    name: str
+    nidn: Optional[str]
+    nip: Optional[str]
+    front_title: Optional[str]
+    back_title: Optional[str]
+    email: Optional[str]
+    phone: Optional[str]
+    gender: Optional[GenderEnum]
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ===========================================================================
+# Lecturers (employee assignment to dataset)
+# ===========================================================================
+class LecturerCreate(BaseModel):
+    employee_id: int
+
+
+class LecturerUpdate(BaseModel):
+    employee_id: int
+
+
 class LecturerRead(BaseModel):
     id: int
     dataset_id: int
+    employee_id: int
+    employee_code: str
     name: str
     code: str
     nidn: Optional[str]

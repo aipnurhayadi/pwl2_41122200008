@@ -12,11 +12,27 @@ import Lecturers from "@/pages/Lecturers";
 import Courses from "@/pages/Courses";
 import TimeSlots from "@/pages/TimeSlots";
 import Classes from "@/pages/Classes";
+import MyDatasets from "@/pages/MyDatasets";
 
 function AppRoutes() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
 
   if (token) {
+    const isLecturer = user?.role === "LECTURER";
+    const defaultRedirect = isLecturer ? "/my-datasets" : "/rooms";
+
+    if (isLecturer) {
+      return (
+        <Routes>
+          <Route path="/" element={<Navigate to="/my-datasets" replace />} />
+          <Route path="/login" element={<Navigate to="/my-datasets" replace />} />
+          <Route path="/register" element={<Navigate to="/my-datasets" replace />} />
+          <Route path="/my-datasets" element={<ProtectedRoute><MyDatasets /></ProtectedRoute>} />
+          <Route path="*" element={<Navigate to="/my-datasets" replace />} />
+        </Routes>
+      );
+    }
+
     return (
       <DatasetProvider>
         <div className="flex h-screen bg-background text-foreground overflow-hidden">
@@ -27,6 +43,7 @@ function AppRoutes() {
               <Route path="/login" element={<Navigate to="/rooms" replace />} />
               <Route path="/register" element={<Navigate to="/rooms" replace />} />
               <Route path="/datasets" element={<Navigate to="/rooms" replace />} />
+              <Route path="/my-datasets" element={<Navigate to="/rooms" replace />} />
               <Route path="/:datasetId/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
               <Route path="/:datasetId/lecturers" element={<ProtectedRoute><Lecturers /></ProtectedRoute>} />
               <Route path="/:datasetId/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
@@ -51,6 +68,7 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/lecturer-login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

@@ -1,6 +1,4 @@
-from datetime import datetime, timezone
-
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -20,6 +18,22 @@ from app.dependencies import get_current_user
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
+def _issue_tokens(user: models.User, db: Session) -> schemas.TokenResponse:
+    raw_refresh = create_refresh_token(user.id)
+    rt = models.RefreshToken(
+        user_id=user.id,
+        token_hash=hash_token(raw_refresh),
+        expires_at=refresh_token_expire(),
+    )
+    db.add(rt)
+    db.commit()
+
+    return schemas.TokenResponse(
+        access_token=create_access_token(user.id, user.role),
+        refresh_token=raw_refresh,
+    )
+
+
 @router.post("/register", response_model=schemas.UserRead, status_code=status.HTTP_201_CREATED)
 def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     if db.query(models.User).filter(models.User.email == payload.email).first():
@@ -28,6 +42,7 @@ def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
         name=payload.name,
         email=payload.email,
         password_hash=hash_password(payload.password),
+        role=models.UserRoleEnum.ADMIN.value,
     )
     db.add(user)
     db.commit()
@@ -41,19 +56,7 @@ def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
-    raw_refresh = create_refresh_token(user.id)
-    rt = models.RefreshToken(
-        user_id=user.id,
-        token_hash=hash_token(raw_refresh),
-        expires_at=refresh_token_expire(),
-    )
-    db.add(rt)
-    db.commit()
-
-    return schemas.TokenResponse(
-        access_token=create_access_token(user.id),
-        refresh_token=raw_refresh,
-    )
+    return _issue_tokens(user, db)
 
 
 @router.post("/refresh", response_model=schemas.AccessTokenResponse)
@@ -74,7 +77,11 @@ def refresh(payload: schemas.RefreshRequest, db: Session = Depends(get_db)):
     if not rt:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token revoked or not found")
 
-    return schemas.AccessTokenResponse(access_token=create_access_token(user_id))
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+    return schemas.AccessTokenResponse(access_token=create_access_token(user_id, user.role))
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

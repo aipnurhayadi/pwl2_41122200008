@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.dependencies import get_dataset_for_user
+from app.dependencies import get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
 
 router = APIRouter(prefix="/api/datasets/{dataset_id}/classes", tags=["classes"])
 
@@ -51,6 +51,7 @@ def list_classes(
 @router.post("/", response_model=schemas.ClassRead, status_code=status.HTTP_201_CREATED)
 def create_class(
     payload: schemas.ClassCreate,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -80,6 +81,7 @@ def get_class(
 def update_class(
     class_id: int,
     payload: schemas.ClassUpdate,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -100,6 +102,7 @@ def update_class(
 @router.delete("/{class_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_class(
     class_id: int,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -111,6 +114,7 @@ def delete_class(
 @router.patch("/{class_id}/restore", response_model=schemas.ClassRead)
 def restore_class(
     class_id: int,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):

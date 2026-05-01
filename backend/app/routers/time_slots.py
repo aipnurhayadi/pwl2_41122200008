@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.dependencies import get_dataset_for_user
+from app.dependencies import get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
 
 router = APIRouter(prefix="/api/datasets/{dataset_id}/time-slots", tags=["time_slots"])
 
@@ -40,6 +40,7 @@ def list_time_slots(
 @router.post("/", response_model=schemas.TimeSlotRead, status_code=status.HTTP_201_CREATED)
 def create_time_slot(
     payload: schemas.TimeSlotCreate,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -63,6 +64,7 @@ def get_time_slot(
 def update_time_slot(
     slot_id: int,
     payload: schemas.TimeSlotUpdate,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -77,6 +79,7 @@ def update_time_slot(
 @router.delete("/{slot_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_time_slot(
     slot_id: int,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -88,6 +91,7 @@ def delete_time_slot(
 @router.patch("/{slot_id}/restore", response_model=schemas.TimeSlotRead)
 def restore_time_slot(
     slot_id: int,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):

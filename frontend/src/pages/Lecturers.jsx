@@ -10,24 +10,17 @@ import { Select } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 
-const GENDER_LABELS = { L: "Laki-laki", P: "Perempuan" };
-const EMPTY_FORM = {
-  name: "", front_title: "", back_title: "",
-  nidn: "", nip: "",
-  email: "", phone: "", gender: "",
-};
-
-function fullName(r) {
-  return [r.front_title, r.name, r.back_title].filter(Boolean).join(" ");
-}
+const EMPTY_FORM = { employee_id: "" };
 
 export default function Lecturers() {
   const { datasetId: paramId } = useParams();
   const { selected } = useDataset();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const dsId = paramId ?? selected?.id;
+  const isLecturerRole = user?.role === "LECTURER";
 
   const [rows, setRows] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState(null);
@@ -36,7 +29,7 @@ export default function Lecturers() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
 
-  const load = useCallback(async () => {
+  const loadAssignments = useCallback(async () => {
     if (!dsId || !token) return;
     setLoading(true);
     try {
@@ -49,17 +42,30 @@ export default function Lecturers() {
     }
   }, [dsId, token]);
 
-  useEffect(() => { load(); }, [load]);
-
-  const openAdd = () => { setForm(EMPTY_FORM); setFormError(null); setDialog({ mode: "add" }); };
-  const openEdit = (row) => {
-    setForm({
-      name: row.name ?? "",
-      front_title: row.front_title ?? "", back_title: row.back_title ?? "",
-      nidn: row.nidn ?? "", nip: row.nip ?? "",
-      email: row.email ?? "", phone: row.phone ?? "",
-      gender: row.gender ?? "",
+  const loadEmployees = useCallback(async () => {
+    if (!token || isLecturerRole) return;
+    const res = await fetch("/api/employees/", {
+      headers: { Authorization: `Bearer ${token}` },
     });
+    if (res.ok) setEmployees(await res.json());
+  }, [token, isLecturerRole]);
+
+  useEffect(() => {
+    loadAssignments();
+  }, [loadAssignments]);
+
+  useEffect(() => {
+    loadEmployees();
+  }, [loadEmployees]);
+
+  const openAdd = () => {
+    setForm(EMPTY_FORM);
+    setFormError(null);
+    setDialog({ mode: "add" });
+  };
+
+  const openEdit = (row) => {
+    setForm({ employee_id: String(row.employee_id) });
     setFormError(null);
     setDialog({ mode: "edit", row });
   };
@@ -68,33 +74,27 @@ export default function Lecturers() {
     e.preventDefault();
     setSaving(true);
     setFormError(null);
-    const body = {
-      name: form.name.trim(),
-      front_title: form.front_title.trim() || null,
-      back_title: form.back_title.trim() || null,
-      nidn: form.nidn.trim() || null,
-      nip: form.nip.trim() || null,
-      email: form.email.trim() || null,
-      phone: form.phone.trim() || null,
-      gender: form.gender || null,
-    };
+
+    const body = { employee_id: Number(form.employee_id) };
     const isEdit = dialog?.mode === "edit";
     const url = isEdit
       ? `/api/datasets/${dsId}/lecturers/${dialog.row.id}`
       : `/api/datasets/${dsId}/lecturers/`;
+
     const res = await fetch(url, {
       method: isEdit ? "PUT" : "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
     });
+
     setSaving(false);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      setFormError(err.detail ?? "Gagal menyimpan");
+      setFormError(err.detail ?? "Gagal menyimpan assignment");
       return;
     }
     setDialog(null);
-    load();
+    loadAssignments();
   };
 
   const handleDelete = async () => {
@@ -106,12 +106,12 @@ export default function Lecturers() {
     });
     setSaving(false);
     setDelTarget(null);
-    load();
+    loadAssignments();
   };
 
-  const setField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const filtered = rows.filter((r) =>
-    [r.code, r.name, r.nidn, r.email].some((v) => v?.toLowerCase().includes(search.toLowerCase()))
+    [r.code, r.employee_code, r.name, r.email]
+      .some((v) => (v ?? "").toLowerCase().includes(search.toLowerCase()))
   );
 
   if (!dsId) {
@@ -127,18 +127,20 @@ export default function Lecturers() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <GraduationCap className="h-6 w-6 text-primary" /> Dosen
+            <GraduationCap className="h-6 w-6 text-primary" /> Assignment Karyawan (Lecturers)
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Dataset: <span className="font-medium text-foreground">{selected?.name ?? `#${dsId}`}</span>
           </p>
         </div>
-        <Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" /> Tambah</Button>
+        {!isLecturerRole && (
+          <Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" /> Assign Karyawan</Button>
+        )}
       </div>
 
       <div className="relative max-w-xs">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Cari dosen..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
+        <Input placeholder="Cari assignment..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-8" />
         {search && (
           <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2">
             <X className="h-3.5 w-3.5 text-muted-foreground" />
@@ -153,34 +155,34 @@ export default function Lecturers() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Kode</TableHead>
-                <TableHead>Nama Lengkap</TableHead>
-                <TableHead>NIDN</TableHead>
+                <TableHead>Kode Assignment</TableHead>
+                <TableHead>Kode Karyawan</TableHead>
+                <TableHead>Nama</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Kelamin</TableHead>
                 <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                    {search ? "Tidak ada hasil pencarian." : "Belum ada data dosen."}
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    {search ? "Tidak ada hasil pencarian." : "Belum ada assignment karyawan."}
                   </TableCell>
                 </TableRow>
               )}
               {filtered.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono font-medium">{r.code}</TableCell>
-                  <TableCell>{fullName(r)}</TableCell>
-                  <TableCell>{r.nidn ?? <span className="text-muted-foreground text-xs">—</span>}</TableCell>
+                  <TableCell className="font-mono">{r.employee_code}</TableCell>
+                  <TableCell>{r.name}</TableCell>
                   <TableCell>{r.email ?? <span className="text-muted-foreground text-xs">—</span>}</TableCell>
-                  <TableCell>{r.gender ? GENDER_LABELS[r.gender] : <span className="text-muted-foreground text-xs">—</span>}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1 justify-end">
-                      <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDelTarget(r)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
+                    {!isLecturerRole && (
+                      <div className="flex items-center gap-1 justify-end">
+                        <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDelTarget(r)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -190,54 +192,28 @@ export default function Lecturers() {
       )}
 
       <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{dialog?.mode === "edit" ? "Edit Dosen" : "Tambah Dosen"}</DialogTitle>
+            <DialogTitle>{dialog?.mode === "edit" ? "Ubah Assignment" : "Assign Karyawan"}</DialogTitle>
           </DialogHeader>
-          <form id="lecturer-form" onSubmit={handleSave} className="grid grid-cols-2 gap-x-4 gap-y-3 py-1">
-            {/* ── Identitas ── */}
-            <p className="col-span-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">Identitas</p>
-            <div className="col-span-2 space-y-1">
-              <Label htmlFor="l-name">Nama *</Label>
-              <Input id="l-name" value={form.name} onChange={setField("name")} required />
-            </div>
+          <form id="lecturer-form" onSubmit={handleSave} className="space-y-4 py-1">
             <div className="space-y-1">
-              <Label htmlFor="l-front">Gelar Depan</Label>
-              <Input id="l-front" value={form.front_title} onChange={setField("front_title")} placeholder="Dr." />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="l-back">Gelar Belakang</Label>
-              <Input id="l-back" value={form.back_title} onChange={setField("back_title")} placeholder="M.Kom." />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="l-gender">Jenis Kelamin</Label>
-              <Select id="l-gender" value={form.gender} onChange={setField("gender")}>
-                <option value="">— Pilih —</option>
-                <option value="L">Laki-laki</option>
-                <option value="P">Perempuan</option>
+              <Label htmlFor="employee_id">Karyawan *</Label>
+              <Select
+                id="employee_id"
+                value={form.employee_id}
+                onChange={(e) => setForm({ employee_id: e.target.value })}
+                required
+              >
+                <option value="">— Pilih Karyawan —</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.employee_code} - {emp.name}
+                  </option>
+                ))}
               </Select>
             </div>
-            {/* ── Akademik ── */}
-            <p className="col-span-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">Akademik</p>
-            <div className="space-y-1">
-              <Label htmlFor="l-nidn">NIDN</Label>
-              <Input id="l-nidn" value={form.nidn} onChange={setField("nidn")} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="l-nip">NIP</Label>
-              <Input id="l-nip" value={form.nip} onChange={setField("nip")} />
-            </div>
-            {/* ── Kontak ── */}
-            <p className="col-span-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">Kontak</p>
-            <div className="space-y-1">
-              <Label htmlFor="l-email">Email</Label>
-              <Input id="l-email" type="email" value={form.email} onChange={setField("email")} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="l-phone">No. Telepon</Label>
-              <Input id="l-phone" value={form.phone} onChange={setField("phone")} />
-            </div>
-            {formError && <p className="col-span-2 text-sm text-destructive">{formError}</p>}
+            {formError && <p className="text-sm text-destructive">{formError}</p>}
           </form>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
@@ -250,9 +226,9 @@ export default function Lecturers() {
 
       <Dialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Hapus Dosen</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Hapus Assignment</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground py-1">
-            Yakin ingin menghapus dosen <span className="font-medium text-foreground">{delTarget ? fullName(delTarget) : ""}</span>?
+            Yakin ingin menghapus assignment <span className="font-medium text-foreground">{delTarget?.code ?? ""}</span>?
           </p>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>

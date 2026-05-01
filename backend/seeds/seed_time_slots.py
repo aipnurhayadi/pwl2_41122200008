@@ -2,19 +2,22 @@
 seed_time_slots.py
 ------------------
 Seed time slots (07:00-23:00, 40-min each, break 11:40-13:00) for every day
-of the week into a specified dataset.
+of the week into an auto-managed dataset.
 
 Usage:
-    python seed_time_slots.py <dataset_id>
+    python -m seeds.seed_time_slots
+    python -m seeds.seed_time_slots --overwrite
 
 Run from the backend directory with the venv activated:
     cd backend
     .\\venv\\Scripts\\activate
-    python seed_time_slots.py 1
+    python -m seeds.seed_time_slots
 """
 
-import sys
+import argparse
 from datetime import time, timedelta, datetime
+
+from seeds.seed_user_dataset import ensure_user_dataset
 
 # ---------------------------------------------------------------------------
 # Build the slot list (start, end) pairs, skipping the break window
@@ -47,15 +50,28 @@ def build_slots() -> list[tuple[time, time]]:
 DAYS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Seed weekly time slots into an auto-managed dataset."
+    )
+    parser.add_argument("--overwrite", action="store_true", help="Delete existing active rows before insert")
+    parser.add_argument("--email", default="admin@example.com", help="Seed user email")
+    parser.add_argument("--password", default="Admin123!", help="Seed user password")
+    parser.add_argument("--name", default="Admin", help="Seed user name")
+    parser.add_argument("--dataset", default="Dataset Seed Default", help="Seed dataset name")
+    parser.add_argument(
+        "--dataset-description",
+        default="Auto-created for seed scripts",
+        help="Seed dataset description",
+    )
+    return parser.parse_args()
+
+
 # ---------------------------------------------------------------------------
 # DB seeding
 # ---------------------------------------------------------------------------
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python seed_time_slots.py <dataset_id>")
-        sys.exit(1)
-
-    dataset_id = int(sys.argv[1])
+    args = parse_args()
     slots = build_slots()
 
     print(f"Slots per day: {len(slots)}")
@@ -65,14 +81,19 @@ def main():
     print()
 
     from app.database import SessionLocal
-    from app.models import TimeSlot, DayEnum, Dataset
+    from app.models import TimeSlot, DayEnum
 
     db = SessionLocal()
     try:
-        dataset = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.deleted_at.is_(None)).first()
-        if not dataset:
-            print(f"ERROR: Dataset id={dataset_id} not found.")
-            sys.exit(1)
+        _, dataset = ensure_user_dataset(
+            db,
+            email=args.email,
+            password=args.password,
+            name=args.name,
+            dataset_name=args.dataset,
+            dataset_description=args.dataset_description,
+        )
+        dataset_id = dataset.id
         print(f"Seeding into dataset: [{dataset.id}] {dataset.name}")
 
         # Remove existing (non-deleted) time slots for this dataset first
@@ -81,11 +102,15 @@ def main():
             .filter(TimeSlot.dataset_id == dataset_id, TimeSlot.deleted_at.is_(None))
             .count()
         )
-        if existing:
-            confirm = input(f"Dataset already has {existing} active time slot(s). Overwrite? [y/N] ").strip().lower()
-            if confirm != "y":
-                print("Aborted.")
-                sys.exit(0)
+        if existing and not args.overwrite:
+            print(
+                f"Skip time slots: dataset already has {existing} active row(s). "
+                "Gunakan --overwrite untuk replace data."
+            )
+            db.commit()
+            return
+
+        if existing and args.overwrite:
             db.query(TimeSlot).filter(
                 TimeSlot.dataset_id == dataset_id,
                 TimeSlot.deleted_at.is_(None),

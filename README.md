@@ -72,15 +72,29 @@ python -m alembic current
 
 ## 6. Seed Data
 
+Semua script seed sudah dipindahkan ke folder `backend/seeds` agar folder root backend tetap rapi.
+
+Sekarang proses seed sudah menjadi satu kesatuan, jadi tidak perlu lagi input `dataset_id` manual.
+
+### 6.0 Seed Semua Data Sekaligus (Disarankan)
+
+```powershell
+python -m seeds.seed_all
+```
+
+Jika ingin replace data master/timeslot yang sudah ada:
+
+```powershell
+python -m seeds.seed_all --overwrite
+```
+
 ### 6.1 Seed User dan Dataset
 
 Script ini membuat 1 user dan 1 dataset (idempotent, aman dijalankan ulang).
 
 ```powershell
-python seed_user_dataset.py
+python -m seeds.seed_user_dataset
 ```
-
-Output akan menampilkan `DATASET_ID` yang dipakai pada seed berikutnya.
 
 Default credential dari script:
 
@@ -90,23 +104,31 @@ Default credential dari script:
 Anda juga bisa override nilai default:
 
 ```powershell
-python seed_user_dataset.py --email admin@example.com --password Admin123! --name Admin --dataset "Dataset Seed Default"
+python -m seeds.seed_user_dataset --email admin@example.com --password Admin123! --name Admin --dataset "Dataset Seed Default"
 ```
 
 ### 6.2 Seed Dosen dan Mata Kuliah
 
-Gunakan `DATASET_ID` dari langkah sebelumnya.
+```powershell
+python -m seeds.seed_lecturers_courses
+```
+
+Untuk replace data dosen/mata kuliah yang sudah ada:
 
 ```powershell
-python seed_lecturers_courses.py 1
+python -m seeds.seed_lecturers_courses --overwrite
 ```
 
 ### 6.3 Seed Time Slots
 
-Gunakan `DATASET_ID` yang sama.
+```powershell
+python -m seeds.seed_time_slots
+```
+
+Untuk replace data time slots yang sudah ada:
 
 ```powershell
-python seed_time_slots.py 1
+python -m seeds.seed_time_slots --overwrite
 ```
 
 ## 7. Menjalankan Backend
@@ -145,11 +167,9 @@ Catatan: konfigurasi Vite sudah mem-proxy request `/api` ke `http://localhost:80
 2) Setup MySQL + buat database
 3) Setup backend + .env
 4) alembic upgrade head
-5) python seed_user_dataset.py
-6) python seed_lecturers_courses.py <DATASET_ID>
-7) python seed_time_slots.py <DATASET_ID>
-8) Jalankan backend (uvicorn)
-9) Jalankan frontend (npm run dev)
+5) python -m seeds.seed_all
+6) Jalankan backend (uvicorn)
+7) Jalankan frontend (npm run dev)
 ```
 
 ## 10. Troubleshooting Singkat

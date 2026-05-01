@@ -6,19 +6,35 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.dependencies import get_dataset_for_user
+from app.dependencies import get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
 
 router = APIRouter(prefix="/api/datasets/{dataset_id}/lecturers", tags=["lecturers"])
 
 
-def _generate_lecturer_code(dataset_id: int, db: Session) -> str:
-    """Auto-generate a sequential lecturer code like DSN001.
-    Counts ALL rows (including soft-deleted) to avoid reuse.
-    """
-    count = db.query(models.Lecturer).filter(
-        models.Lecturer.dataset_id == dataset_id
-    ).count()
-    return f"DSN{count + 1:03d}"
+def _generate_lecturer_code(dataset: models.Dataset, employee: models.Employee) -> str:
+    return f"{dataset.code}-{employee.employee_code}"
+
+
+def _to_read(lecturer: models.Lecturer) -> schemas.LecturerRead:
+    employee = lecturer.employee
+    return schemas.LecturerRead(
+        id=lecturer.id,
+        dataset_id=lecturer.dataset_id,
+        employee_id=lecturer.employee_id,
+        employee_code=employee.employee_code,
+        name=employee.name,
+        code=lecturer.code,
+        nidn=employee.nidn,
+        nip=employee.nip,
+        front_title=employee.front_title,
+        back_title=employee.back_title,
+        email=employee.email,
+        phone=employee.phone,
+        gender=employee.gender,
+        created_at=lecturer.created_at,
+        updated_at=lecturer.updated_at,
+        deleted_at=lecturer.deleted_at,
+    )
 
 
 def _get_active_lecturer(lecturer_id: int, dataset: models.Dataset, db: Session) -> models.Lecturer:
@@ -41,30 +57,42 @@ def list_lecturers(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
-    return (
+    rows = (
         db.query(models.Lecturer)
         .filter(models.Lecturer.dataset_id == dataset.id, models.Lecturer.deleted_at.is_(None))
         .all()
     )
+    return [_to_read(r) for r in rows]
 
 
 @router.post("/", response_model=schemas.LecturerRead, status_code=status.HTTP_201_CREATED)
 def create_lecturer(
     payload: schemas.LecturerCreate,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
-    data = payload.model_dump()
-    data["code"] = _generate_lecturer_code(dataset.id, db)
-    lecturer = models.Lecturer(dataset_id=dataset.id, **data)
+    employee = (
+        db.query(models.Employee)
+        .filter(models.Employee.id == payload.employee_id)
+        .first()
+    )
+    if not employee:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+
+    lecturer = models.Lecturer(
+        dataset_id=dataset.id,
+        employee_id=employee.id,
+        code=_generate_lecturer_code(dataset, employee),
+    )
     db.add(lecturer)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="A lecturer with this code already exists in the dataset")
+        raise HTTPException(status_code=409, detail="Employee is already assigned to this dataset")
     db.refresh(lecturer)
-    return lecturer
+    return _to_read(lecturer)
 
 
 @router.get("/{lecturer_id}", response_model=schemas.LecturerRead)
@@ -73,33 +101,41 @@ def get_lecturer(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
-    return _get_active_lecturer(lecturer_id, dataset, db)
+    return _to_read(_get_active_lecturer(lecturer_id, dataset, db))
 
 
 @router.put("/{lecturer_id}", response_model=schemas.LecturerRead)
 def update_lecturer(
     lecturer_id: int,
     payload: schemas.LecturerUpdate,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
     lecturer = _get_active_lecturer(lecturer_id, dataset, db)
-    updates = payload.model_dump(exclude_unset=True)
-    updates.pop("code", None)  # code is auto-generated, never updatable
-    for k, v in updates.items():
-        setattr(lecturer, k, v)
+    employee = (
+        db.query(models.Employee)
+        .filter(models.Employee.id == payload.employee_id)
+        .first()
+    )
+    if not employee:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
+
+    lecturer.employee_id = employee.id
+    lecturer.code = _generate_lecturer_code(dataset, employee)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="A lecturer with this code already exists in the dataset")
+        raise HTTPException(status_code=409, detail="Employee is already assigned to this dataset")
     db.refresh(lecturer)
-    return lecturer
+    return _to_read(lecturer)
 
 
 @router.delete("/{lecturer_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_lecturer(
     lecturer_id: int,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -111,6 +147,7 @@ def delete_lecturer(
 @router.patch("/{lecturer_id}/restore", response_model=schemas.LecturerRead)
 def restore_lecturer(
     lecturer_id: int,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -128,7 +165,7 @@ def restore_lecturer(
     lecturer.deleted_at = None
     db.commit()
     db.refresh(lecturer)
-    return lecturer
+    return _to_read(lecturer)
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +175,7 @@ def restore_lecturer(
 def assign_course(
     lecturer_id: int,
     course_id: int,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -158,6 +196,7 @@ def assign_course(
 def unassign_course(
     lecturer_id: int,
     course_id: int,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):

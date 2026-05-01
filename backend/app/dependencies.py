@@ -8,6 +8,7 @@ from app import auth, models
 from app.database import get_db
 
 bearer = HTTPBearer(auto_error=False)
+WRITE_ALLOWED_ROLES = (models.UserRoleEnum.ADMIN.value,)
 
 
 def get_current_user(
@@ -65,14 +66,52 @@ def get_dataset_for_user(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> models.Dataset:
-    dataset = (
-        db.query(models.Dataset)
-        .filter(
-            models.Dataset.id == dataset_id,
-            models.Dataset.user_id == current_user.id,
+    query = db.query(models.Dataset).filter(models.Dataset.id == dataset_id)
+
+    if current_user.role in WRITE_ALLOWED_ROLES:
+        # Admin may access owned datasets or datasets where their employee profile is assigned.
+        if current_user.employee_profile:
+            query = query.filter(
+                (models.Dataset.user_id == current_user.id)
+                | (
+                    db.query(models.Lecturer.id)
+                    .filter(
+                        models.Lecturer.dataset_id == models.Dataset.id,
+                        models.Lecturer.employee_id == current_user.employee_profile.id,
+                        models.Lecturer.deleted_at.is_(None),
+                    )
+                    .exists()
+                )
+            )
+        else:
+            query = query.filter(models.Dataset.user_id == current_user.id)
+    elif current_user.role == models.UserRoleEnum.LECTURER.value:
+        if not current_user.employee_profile:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Employee profile not available")
+        query = query.filter(
+            db.query(models.Lecturer.id)
+            .filter(
+                models.Lecturer.dataset_id == models.Dataset.id,
+                models.Lecturer.employee_id == current_user.employee_profile.id,
+                models.Lecturer.deleted_at.is_(None),
+            )
+            .exists()
         )
-        .first()
-    )
+    else:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    dataset = query.first()
     if not dataset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
     return dataset
+
+
+def require_any_role(*allowed_roles: str):
+    """Dependency factory for simple role-based access checks."""
+
+    def _checker(current_user: models.User = Depends(get_current_user)) -> models.User:
+        if current_user.role not in allowed_roles:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        return current_user
+
+    return _checker

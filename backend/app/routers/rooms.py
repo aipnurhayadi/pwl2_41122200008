@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app import models, schemas
 from app.database import get_db
-from app.dependencies import get_dataset_for_user
+from app.dependencies import get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
 
 router = APIRouter(prefix="/api/datasets/{dataset_id}/rooms", tags=["rooms"])
 
@@ -33,6 +33,7 @@ def list_rooms(
 @router.post("/", response_model=schemas.RoomRead, status_code=status.HTTP_201_CREATED)
 def create_room(
     payload: schemas.RoomCreate,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -66,6 +67,7 @@ def get_room(
 def update_room(
     room_id: int,
     payload: schemas.RoomUpdate,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -89,6 +91,7 @@ def update_room(
 @router.delete("/{room_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_room(
     room_id: int,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -102,6 +105,7 @@ def delete_room(
 @router.patch("/{room_id}/restore", response_model=schemas.RoomRead)
 def restore_room(
     room_id: int,
+    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):

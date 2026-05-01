@@ -33,10 +33,10 @@ def verify_password(plain: str, hashed: str) -> bool:
 # ---------------------------------------------------------------------------
 # JWT
 # ---------------------------------------------------------------------------
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, role: str = "user") -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     return jwt.encode(
-        {"sub": str(user_id), "type": "access", "exp": expire},
+        {"sub": str(user_id), "type": "access", "role": role, "exp": expire},
         SECRET_KEY,
         algorithm=ALGORITHM,
     )
