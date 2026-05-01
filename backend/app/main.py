@@ -12,7 +12,7 @@ load_dotenv(Path(__file__).parent.parent / ".env", override=True)
 
 from app.routers import auth, datasets, rooms, lecturers, courses, time_slots, classes
 
-app = FastAPI(title="PWL Class Scheduler API", version="2.0.0")
+app = FastAPI(title="Timetable API", version="2.0.0")
 
 # ---------------------------------------------------------------------------
 # CORS — always added; origins from ALLOW_ORIGINS env var or fallback to all

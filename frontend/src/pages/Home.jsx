@@ -37,7 +37,7 @@ export default function Home() {
       {/* Hero */}
       <section className="text-center space-y-4">
         <Badge variant="secondary" className="text-sm px-3 py-1">
-          PWL2 — Pemrograman Web Lanjut 2
+          Timetable Tool
         </Badge>
         <h1 className="text-4xl font-bold tracking-tight">
           FastAPI + React Fullstack
