@@ -66,12 +66,12 @@ export function DatasetProvider({ children }) {
     else localStorage.removeItem("selected_dataset");
   };
 
-  const createDataset = async (name) => {
+  const createDataset = async (payload) => {
     if (!normalizeToken(token)) return { error: "User belum login" };
     const res = await fetch(DATASETS_API, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -82,12 +82,12 @@ export function DatasetProvider({ children }) {
     return { data: created };
   };
 
-  const updateDataset = async (id, name) => {
+  const updateDataset = async (id, payload) => {
     if (!normalizeToken(token)) return { error: "User belum login" };
     const res = await fetch(`/api/datasets/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));

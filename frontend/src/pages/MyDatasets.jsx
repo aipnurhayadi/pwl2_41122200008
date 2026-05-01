@@ -1,21 +1,19 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Database, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import DataTablePagination from "@/components/DataTablePagination";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+
+const PAGE_SIZE = 10;
 
 export default function MyDatasets() {
   const { token, user, logout } = useAuth();
   const [datasets, setDatasets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     fetch("/api/datasets/my", {
@@ -34,6 +32,13 @@ export default function MyDatasets() {
         setLoading(false);
       });
   }, [token]);
+
+  const totalPages = Math.max(1, Math.ceil(datasets.length / PAGE_SIZE));
+  const paginated = datasets.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -79,30 +84,37 @@ export default function MyDatasets() {
           </div>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {datasets.map((ds) => (
-            <Card key={ds.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-base leading-snug">{ds.name}</CardTitle>
-                  <Badge variant="secondary" className="shrink-0 text-xs">
-                    {ds.code}
-                  </Badge>
-                </div>
-                {ds.description && (
-                  <CardDescription className="text-xs line-clamp-2">
-                    {ds.description}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground">
-                  ID Dataset: <span className="font-mono">{ds.id}</span>
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {!loading && !error && datasets.length > 0 && (
+          <div className="rounded-lg border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Kode</TableHead>
+                  <TableHead>Nama Dataset</TableHead>
+                  <TableHead>Deskripsi</TableHead>
+                  <TableHead>ID</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginated.map((ds) => (
+                  <TableRow key={ds.id}>
+                    <TableCell><Badge variant="secondary" className="text-xs">{ds.code}</Badge></TableCell>
+                    <TableCell className="font-medium">{ds.name}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-[420px] truncate">{ds.description || "Tanpa deskripsi"}</TableCell>
+                    <TableCell className="font-mono">{ds.id}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <DataTablePagination
+              page={page}
+              setPage={setPage}
+              totalItems={datasets.length}
+              pageSize={PAGE_SIZE}
+              itemLabel="dataset"
+            />
+          </div>
+        )}
       </main>
     </div>
   );

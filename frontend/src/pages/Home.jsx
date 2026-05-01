@@ -1,78 +1,112 @@
-import { Zap, Layers, Database, ArrowRight } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Eye, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import DataTablePagination from "@/components/DataTablePagination";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
-const features = [
-  {
-    icon: Zap,
-    title: "FastAPI Backend",
-    description:
-      "High-performance REST API powered by FastAPI with automatic Swagger docs at /docs.",
-  },
-  {
-    icon: Layers,
-    title: "React SPA Frontend",
-    description:
-      "Single-page application built with React and served by the same FastAPI server in production.",
-  },
-  {
-    icon: Database,
-    title: "MySQL + Alembic",
-    description:
-      "Persistent data storage with SQLAlchemy ORM and version-controlled schema migrations via Alembic.",
-  },
-];
+const PAGE_SIZE = 10;
 
 export default function Home() {
+  const [datasets, setDatasets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    const run = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/datasets/public");
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.detail ?? "Gagal memuat dataset public");
+        }
+        setDatasets(await res.json());
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    run();
+  }, []);
+
+  const totalPages = Math.max(1, Math.ceil(datasets.length / PAGE_SIZE));
+  const paginated = datasets.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   return (
     <main className="container mx-auto max-w-5xl px-4 py-12 space-y-12">
-      {/* Hero */}
-      <section className="text-center space-y-4">
-        <Badge variant="secondary" className="text-sm px-3 py-1">
-          Timetable Tool
-        </Badge>
-        <h1 className="text-4xl font-bold tracking-tight">
-          FastAPI + React Fullstack
-        </h1>
-        <p className="text-muted-foreground max-w-xl mx-auto text-lg">
-          One server, one port. FastAPI handles the API and serves the React SPA
-          via a catch-all route.
+      <section className="space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Eksplor Dataset Publik</h1>
+        <p className="text-muted-foreground max-w-2xl">
+          Lihat dataset yang sudah dipublikasikan.
         </p>
-        <div className="flex justify-center gap-3 pt-2">
-          <Button asChild>
-            <Link to="/items" className="flex items-center gap-2">
-              Try Items CRUD <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <a href="/docs" target="_blank" rel="noreferrer">
-              API Docs (Swagger)
-            </a>
-          </Button>
-        </div>
       </section>
 
-      {/* Feature cards */}
-      <section className="grid gap-4 sm:grid-cols-3">
-        {features.map(({ icon: Icon, title, description }) => (
-          <Card key={title}>
-            <CardHeader className="pb-2">
-              <Icon className="h-8 w-8 text-primary mb-1" />
-              <CardTitle className="text-base">{title}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CardDescription>{description}</CardDescription>
-            </CardContent>
-          </Card>
-        ))}
+      {loading ? (
+        <section className="flex items-center justify-center py-16 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </section>
+      ) : error ? (
+        <section className="text-destructive">{error}</section>
+      ) : (
+        <section className="rounded-lg border overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Kode</TableHead>
+                <TableHead>Nama Dataset</TableHead>
+                <TableHead>Deskripsi</TableHead>
+                <TableHead>Visibility</TableHead>
+                <TableHead className="w-28" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {datasets.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    Belum ada dataset public.
+                  </TableCell>
+                </TableRow>
+              )}
+              {paginated.map((ds) => (
+                <TableRow key={ds.id}>
+                  <TableCell><Badge variant="outline">{ds.code}</Badge></TableCell>
+                  <TableCell className="font-medium">{ds.name}</TableCell>
+                  <TableCell className="max-w-[420px] truncate text-muted-foreground">{ds.description || "Tanpa deskripsi"}</TableCell>
+                  <TableCell><Badge>{ds.visibility}</Badge></TableCell>
+                  <TableCell>
+                    <Button asChild size="sm" variant="outline">
+                      <Link to={`/datasets/${ds.id}`} className="flex items-center gap-2">
+                        <Eye className="h-4 w-4" /> Detail
+                      </Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <DataTablePagination
+            page={page}
+            setPage={setPage}
+            totalItems={datasets.length}
+            pageSize={PAGE_SIZE}
+            itemLabel="dataset"
+          />
+        </section>
+      )}
+
+      <section className="pt-4">
+        <a href="/docs" target="_blank" rel="noreferrer" className="text-sm text-primary hover:underline">
+          Buka API Docs (Swagger)
+        </a>
       </section>
     </main>
   );

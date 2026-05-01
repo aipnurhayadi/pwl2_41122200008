@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
+import DataTablePagination from "@/components/DataTablePagination";
 
 const DAY_LABELS = {
   MON: "Senin", TUE: "Selasa", WED: "Rabu", THU: "Kamis",
@@ -16,6 +18,7 @@ const DAY_LABELS = {
 };
 const DAYS = Object.entries(DAY_LABELS);
 const EMPTY_FORM = { day: "MON", start_time: "07:00", end_time: "08:00" };
+const PAGE_SIZE = 10;
 
 function fmtTime(t) { return t ? t.slice(0, 5) : "—"; }
 const timeInputClass = "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring dark:bg-input/30";
@@ -34,6 +37,7 @@ export default function TimeSlots() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     if (!dsId || !token) return;
@@ -105,6 +109,16 @@ export default function TimeSlots() {
   const filtered = rows.filter((r) =>
     (DAY_LABELS[r.day] ?? r.day ?? "").toLowerCase().includes(search.toLowerCase())
   );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, dsId]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   if (!dsId) {
     return (
@@ -121,9 +135,7 @@ export default function TimeSlots() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Clock className="h-6 w-6 text-primary" /> Slot Waktu
           </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Dataset: <span className="font-medium text-foreground">{selected?.name ?? `#${dsId}`}</span>
-          </p>
+          <DatasetHeaderInfo datasetId={dsId} datasetName={selected?.name} />
         </div>
         <Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" /> Tambah</Button>
       </div>
@@ -159,7 +171,7 @@ export default function TimeSlots() {
                   </TableCell>
                 </TableRow>
               )}
-              {filtered.map((r) => (
+              {paginated.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{DAY_LABELS[r.day] ?? r.day}</TableCell>
                   <TableCell className="font-mono">{fmtTime(r.start_time)}</TableCell>
@@ -174,6 +186,13 @@ export default function TimeSlots() {
               ))}
             </TableBody>
           </Table>
+          <DataTablePagination
+            page={page}
+            setPage={setPage}
+            totalItems={filtered.length}
+            pageSize={PAGE_SIZE}
+            itemLabel="slot waktu"
+          />
         </div>
       )}
 
