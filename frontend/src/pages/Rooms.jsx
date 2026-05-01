@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
 import DataTablePagination from "@/components/DataTablePagination";
-import { Select } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 
@@ -242,9 +242,18 @@ export default function Rooms() {
             </div>
             <div className="col-span-2 space-y-1">
               <Label htmlFor="r-type">Tipe Ruangan</Label>
-              <Select id="r-type" value={form.room_type} onChange={setField("room_type")}>
-                <option value="">— Pilih Tipe —</option>
-                {ROOM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              <Select
+                value={form.room_type}
+                onValueChange={(v) => setForm((f) => ({ ...f, room_type: v }))}
+              >
+                <SelectTrigger id="r-type">
+                  <SelectValue placeholder="— Pilih Tipe —" />
+                </SelectTrigger>
+                <SelectPopup>
+                  {ROOM_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectPopup>
               </Select>
             </div>
             {formError && <p className="col-span-2 text-sm text-destructive">{formError}</p>}

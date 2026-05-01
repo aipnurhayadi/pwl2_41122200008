@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
@@ -204,8 +204,18 @@ export default function TimeSlots() {
           <form id="slot-form" onSubmit={handleSave} className="space-y-3 py-1">
             <div className="space-y-1">
               <Label htmlFor="s-day">Hari *</Label>
-              <Select id="s-day" value={form.day} onChange={setField("day")} required>
-                {DAYS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              <Select
+                value={form.day}
+                onValueChange={(v) => setForm((f) => ({ ...f, day: v }))}
+              >
+                <SelectTrigger id="s-day">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectPopup>
+                  {DAYS.map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectPopup>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">

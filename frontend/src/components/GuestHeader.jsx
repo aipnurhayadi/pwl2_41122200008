@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { CalendarDays, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ModeToggle from "@/components/ModeToggle";
 
 export default function GuestHeader() {
   return (
@@ -10,7 +11,8 @@ export default function GuestHeader() {
           <CalendarDays className="h-5 w-5 text-primary" />
           <span>TIMETABLE TOOL</span>
         </Link>
-        <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-3">
+          <ModeToggle width_full={false} />
           <Button variant="ghost" size="sm" asChild>
             <Link to="/login" className="flex items-center gap-2">
               <LogIn className="h-4 w-4" />
