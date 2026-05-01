@@ -8,7 +8,7 @@ export default function GuestHeader() {
       <div className="container mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2 font-semibold text-lg">
           <CalendarDays className="h-5 w-5 text-primary" />
-          <span>PWL</span>
+          <span>TIMETABLE TOOL</span>
         </Link>
         <nav className="flex items-center gap-1">
           <Button variant="ghost" size="sm" asChild>

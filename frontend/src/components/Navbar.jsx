@@ -44,7 +44,7 @@ export default function Navbar() {
         {/* Brand */}
         <Link to={token ? "/datasets" : "/"} className="flex items-center gap-2 font-semibold text-lg shrink-0">
           <CalendarDays className="h-5 w-5 text-primary" />
-          <span>PWL</span>
+          <span>TIMETABLE TOOL</span>
         </Link>
 
         {/* Desktop nav */}
