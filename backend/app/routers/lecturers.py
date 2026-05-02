@@ -29,7 +29,7 @@ def _to_read(lecturer: models.Lecturer) -> schemas.LecturerRead:
         nip=employee.nip,
         front_title=employee.front_title,
         back_title=employee.back_title,
-        email=employee.email,
+        email=employee.user.email if employee.user else None,
         phone=employee.phone,
         gender=employee.gender,
         created_at=lecturer.created_at,
@@ -64,6 +64,7 @@ def list_lecturers(
     query = (
         db.query(models.Lecturer)
         .join(models.Employee, models.Employee.id == models.Lecturer.employee_id)
+        .outerjoin(models.User, models.User.id == models.Employee.user_id)
         .filter(models.Lecturer.dataset_id == dataset.id, models.Lecturer.deleted_at.is_(None))
     )
 
@@ -74,7 +75,7 @@ def list_lecturers(
                 models.Lecturer.code.ilike(keyword),
                 models.Employee.employee_code.ilike(keyword),
                 models.Employee.name.ilike(keyword),
-                models.Employee.email.ilike(keyword),
+                models.User.email.ilike(keyword),
             )
         )
 

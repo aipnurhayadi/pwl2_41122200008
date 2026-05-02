@@ -203,7 +203,7 @@ def get_dataset_tree(
     time_slots = (
         db.query(models.TimeSlot)
         .filter(models.TimeSlot.dataset_id == dataset.id, models.TimeSlot.deleted_at.is_(None))
-        .order_by(models.TimeSlot.day.asc(), models.TimeSlot.start_time.asc())
+        .order_by(models.TimeSlot.day.asc(), models.TimeSlot.start_time.asc(), models.TimeSlot.code.asc())
         .all()
     )
     classes = (

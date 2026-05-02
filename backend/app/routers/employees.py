@@ -39,6 +39,23 @@ def _unique_user_email(db: Session, preferred: str | None, employee_code: str) -
     return candidate
 
 
+def _to_read(employee: models.Employee) -> schemas.EmployeeRead:
+    return schemas.EmployeeRead(
+        id=employee.id,
+        employee_code=employee.employee_code,
+        name=employee.name,
+        nidn=employee.nidn,
+        nip=employee.nip,
+        front_title=employee.front_title,
+        back_title=employee.back_title,
+        user_email=employee.user.email if employee.user else None,
+        phone=employee.phone,
+        gender=employee.gender,
+        created_at=employee.created_at,
+        updated_at=employee.updated_at,
+    )
+
+
 @router.get("/", response_model=list[schemas.EmployeeRead] | schemas.PaginatedEmployeeRead)
 def list_employees(
     _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
@@ -47,14 +64,14 @@ def list_employees(
     offset: int = Query(default=0, ge=0),
     q: str | None = Query(default=None),
 ):
-    query = db.query(models.Employee)
+    query = db.query(models.Employee).outerjoin(models.User, models.User.id == models.Employee.user_id)
     if q:
         keyword = f"%{q.strip()}%"
         query = query.filter(
             or_(
                 models.Employee.employee_code.ilike(keyword),
                 models.Employee.name.ilike(keyword),
-                models.Employee.email.ilike(keyword),
+                models.User.email.ilike(keyword),
                 models.Employee.nidn.ilike(keyword),
                 models.Employee.nip.ilike(keyword),
             )
@@ -63,11 +80,11 @@ def list_employees(
     query = query.order_by(models.Employee.id.asc())
 
     if limit is None:
-        return query.all()
+        return [_to_read(item) for item in query.all()]
 
     total = query.count()
     items = query.offset(offset).limit(limit).all()
-    return {"items": items, "total": total, "limit": limit, "offset": offset}
+    return {"items": [_to_read(item) for item in items], "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("/", response_model=schemas.EmployeeRead, status_code=status.HTTP_201_CREATED)
@@ -77,9 +94,10 @@ def create_employee(
     db: Session = Depends(get_db),
 ):
     employee_code = _generate_employee_code(db)
+    payload_data = payload.model_dump(exclude={"user_email"})
     user = models.User(
         name=payload.name,
-        email=_unique_user_email(db, payload.email, employee_code),
+        email=_unique_user_email(db, payload.user_email, employee_code),
         password_hash=auth.hash_password(DEFAULT_EMPLOYEE_PASSWORD),
         role=models.UserRoleEnum.LECTURER.value,
     )
@@ -89,7 +107,7 @@ def create_employee(
     employee = models.Employee(
         user_id=user.id,
         employee_code=employee_code,
-        **payload.model_dump(),
+        **payload_data,
     )
     db.add(employee)
     try:
@@ -98,7 +116,7 @@ def create_employee(
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Employee code conflict")
     db.refresh(employee)
-    return employee
+    return _to_read(employee)
 
 
 @router.get("/{employee_id}", response_model=schemas.EmployeeRead)
@@ -110,7 +128,7 @@ def get_employee(
     employee = db.query(models.Employee).filter(models.Employee.id == employee_id).first()
     if not employee:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
-    return employee
+    return _to_read(employee)
 
 
 @router.put("/{employee_id}", response_model=schemas.EmployeeRead)
@@ -124,7 +142,8 @@ def update_employee(
     if not employee:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found")
 
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True, exclude={"user_email"})
+    for k, v in updates.items():
         setattr(employee, k, v)
 
     # Keep linked login profile aligned with employee identity fields.
@@ -132,8 +151,8 @@ def update_employee(
         if payload.name is not None:
             employee.user.name = employee.name
 
-        if payload.email is not None:
-            new_email = payload.email.strip().lower() if payload.email else None
+        if payload.user_email is not None:
+            new_email = payload.user_email.strip().lower()
             if new_email:
                 conflict = (
                     db.query(models.User.id)
@@ -146,7 +165,7 @@ def update_employee(
 
     db.commit()
     db.refresh(employee)
-    return employee
+    return _to_read(employee)
 
 
 @router.delete("/{employee_id}", status_code=status.HTTP_204_NO_CONTENT)

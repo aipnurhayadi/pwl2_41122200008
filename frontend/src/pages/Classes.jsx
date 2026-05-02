@@ -17,6 +17,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
@@ -280,16 +281,19 @@ export default function Classes() {
 
       {/* Delete dialog */}
       <AlertDialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent size="sm">
           <AlertDialogHeader>
+            <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive">
+              <Trash2 className="h-5 w-5" />
+            </AlertDialogMedia>
             <AlertDialogTitle>Hapus Kelas</AlertDialogTitle>
             <AlertDialogDescription>
               Yakin ingin menghapus kelas <span className="font-medium text-foreground">{delTarget?.name}</span>? Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={saving}>
+            <AlertDialogCancel variant="outline">Batal</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -68,7 +68,6 @@ class Employee(Base):
     nip = Column(String(20), nullable=True)
     front_title = Column(String(50), nullable=True)
     back_title = Column(String(100), nullable=True)
-    email = Column(String(255), nullable=True)
     phone = Column(String(20), nullable=True)
     gender = Column(String(1), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
@@ -236,6 +235,7 @@ class TimeSlot(SoftDeleteMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
     dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    code = Column(String(50), nullable=False)
     day = Column(Enum(DayEnum), nullable=False)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
@@ -243,6 +243,8 @@ class TimeSlot(SoftDeleteMixin, Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     dataset = relationship("Dataset", back_populates="time_slots")
+
+    __table_args__ = (UniqueConstraint("dataset_id", "code", name="uq_time_slot_dataset_code"),)
 
 
 # ---------------------------------------------------------------------------

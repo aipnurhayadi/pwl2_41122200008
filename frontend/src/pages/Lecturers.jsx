@@ -17,6 +17,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
@@ -47,6 +48,7 @@ export default function Lecturers() {
   const [formError, setFormError] = useState(null);
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search, 300);
+  const selectedEmployee = employees.find((emp) => String(emp.id) === form.employee_id);
 
   const loadAssignments = useCallback(async () => {
     if (!dsId || !token) return;
@@ -208,7 +210,7 @@ export default function Lecturers() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Kode Assignment</TableHead>
+                <TableHead>Kode</TableHead>
                 <TableHead>Kode Karyawan</TableHead>
                 <TableHead>Nama</TableHead>
                 <TableHead>Email</TableHead>
@@ -264,11 +266,13 @@ export default function Lecturers() {
                 onValueChange={(v) => setForm({ employee_id: v })}
               >
                 <SelectTrigger id="employee_id">
-                  <SelectValue placeholder="— Pilih Karyawan —" />
+                  <SelectValue placeholder="— Pilih Karyawan —">
+                    {selectedEmployee ? `${selectedEmployee.employee_code} - ${selectedEmployee.name}` : null}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectPopup>
                   {employees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
+                    <SelectItem key={emp.id} value={String(emp.id)}>
                       {emp.employee_code} - {emp.name}
                     </SelectItem>
                   ))}
@@ -286,16 +290,19 @@ export default function Lecturers() {
       </Dialog>
 
       <AlertDialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent size="sm">
           <AlertDialogHeader>
+            <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive">
+              <Trash2 className="h-5 w-5" />
+            </AlertDialogMedia>
             <AlertDialogTitle>Hapus Assignment</AlertDialogTitle>
             <AlertDialogDescription>
               Yakin ingin menghapus assignment <span className="font-medium text-foreground">{delTarget?.code ?? ""}</span>? Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={saving}>
+            <AlertDialogCancel variant="outline">Batal</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>

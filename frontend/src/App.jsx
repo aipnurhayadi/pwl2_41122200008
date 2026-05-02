@@ -55,16 +55,16 @@ function AppRoutes() {
                 <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
                 <Route path="/my-datasets" element={<Navigate to="/home" replace />} />
                 <Route path="/datasets/:datasetId" element={<ProtectedRoute><DatasetDetail /></ProtectedRoute>} />
-                <Route path="/:datasetId/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
-                <Route path="/:datasetId/lecturers" element={<ProtectedRoute><Lecturers /></ProtectedRoute>} />
-                <Route path="/:datasetId/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
-                <Route path="/:datasetId/time-slots" element={<ProtectedRoute><TimeSlots /></ProtectedRoute>} />
-                <Route path="/:datasetId/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
-                <Route path="/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
-                <Route path="/lecturers" element={<ProtectedRoute><Lecturers /></ProtectedRoute>} />
-                <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
-                <Route path="/time-slots" element={<ProtectedRoute><TimeSlots /></ProtectedRoute>} />
-                <Route path="/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
+                <Route path="/dataset/:datasetId/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
+                <Route path="/dataset/:datasetId/lecturers" element={<ProtectedRoute><Lecturers /></ProtectedRoute>} />
+                <Route path="/dataset/:datasetId/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
+                <Route path="/dataset/:datasetId/time-slots" element={<ProtectedRoute><TimeSlots /></ProtectedRoute>} />
+                <Route path="/dataset/:datasetId/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
+                <Route path="/rooms" element={<Navigate to="/home" replace />} />
+                <Route path="/lecturers" element={<Navigate to="/home" replace />} />
+                <Route path="/courses" element={<Navigate to="/home" replace />} />
+                <Route path="/time-slots" element={<Navigate to="/home" replace />} />
+                <Route path="/classes" element={<Navigate to="/home" replace />} />
                 <Route path="*" element={<Navigate to="/home" replace />} />
               </Routes>
             </main>

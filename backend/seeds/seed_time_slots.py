@@ -119,16 +119,19 @@ def main():
             print(f"Deleted {existing} existing time slots.")
 
         rows = []
+        seq = 1
         for day in DAYS:
             for start, end in slots:
                 rows.append(
                     TimeSlot(
                         dataset_id=dataset_id,
+                        code=f"TS{seq:03d}",
                         day=DayEnum(day),
                         start_time=start,
                         end_time=end,
                     )
                 )
+                seq += 1
 
         db.bulk_save_objects(rows)
         db.commit()

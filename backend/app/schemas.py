@@ -144,6 +144,7 @@ class DatasetTreeCourse(BaseModel):
 
 class DatasetTreeTimeSlot(BaseModel):
     id: int
+    code: str
     day: DayEnum
     start_time: time
     end_time: time
@@ -220,7 +221,7 @@ class EmployeeCreate(BaseModel):
     nip: Optional[str] = None
     front_title: Optional[str] = None
     back_title: Optional[str] = None
-    email: Optional[str] = None
+    user_email: Optional[EmailStr] = None
     phone: Optional[str] = None
     gender: Optional[GenderEnum] = None
 
@@ -231,7 +232,7 @@ class EmployeeUpdate(BaseModel):
     nip: Optional[str] = None
     front_title: Optional[str] = None
     back_title: Optional[str] = None
-    email: Optional[str] = None
+    user_email: Optional[EmailStr] = None
     phone: Optional[str] = None
     gender: Optional[GenderEnum] = None
 
@@ -244,7 +245,7 @@ class EmployeeRead(BaseModel):
     nip: Optional[str]
     front_title: Optional[str]
     back_title: Optional[str]
-    email: Optional[str]
+    user_email: Optional[str]
     phone: Optional[str]
     gender: Optional[GenderEnum]
     created_at: datetime
@@ -359,6 +360,7 @@ class TimeSlotUpdate(BaseModel):
 class TimeSlotRead(BaseModel):
     id: int
     dataset_id: int
+    code: str
     day: DayEnum
     start_time: time
     end_time: time

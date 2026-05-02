@@ -88,7 +88,7 @@ def _ensure_employee_user(db, employee, default_password: str) -> None:
 
     user = User(
         name=employee.name,
-        email=_unique_user_email(db, employee.email, employee.employee_code),
+        email=_unique_user_email(db, None, employee.employee_code),
         password_hash=auth.hash_password(default_password),
         role=UserRoleEnum.LECTURER.value,
     )

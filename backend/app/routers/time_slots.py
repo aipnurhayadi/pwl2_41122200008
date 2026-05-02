@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import String, cast
+from sqlalchemy import String, cast, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -9,6 +10,11 @@ from app.database import get_db
 from app.dependencies import get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
 
 router = APIRouter(prefix="/api/datasets/{dataset_id}/time-slots", tags=["time_slots"])
+
+
+def _generate_time_slot_code(dataset_id: int, db: Session) -> str:
+    count = db.query(models.TimeSlot).filter(models.TimeSlot.dataset_id == dataset_id).count()
+    return f"TS{count + 1:03d}"
 
 
 def _get_active_slot(slot_id: int, dataset: models.Dataset, db: Session) -> models.TimeSlot:
@@ -41,7 +47,12 @@ def list_time_slots(
 
     if q:
         keyword = f"%{q.strip()}%"
-        query = query.filter(cast(models.TimeSlot.day, String).ilike(keyword))
+        query = query.filter(
+            or_(
+                models.TimeSlot.code.ilike(keyword),
+                cast(models.TimeSlot.day, String).ilike(keyword),
+            )
+        )
 
     query = query.order_by(models.TimeSlot.day.asc(), models.TimeSlot.start_time.asc())
 
@@ -60,9 +71,17 @@ def create_time_slot(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
-    slot = models.TimeSlot(dataset_id=dataset.id, **payload.model_dump())
+    slot = models.TimeSlot(
+        dataset_id=dataset.id,
+        code=_generate_time_slot_code(dataset.id, db),
+        **payload.model_dump(),
+    )
     db.add(slot)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="A time slot with this code already exists in the dataset")
     db.refresh(slot)
     return slot
 
@@ -85,7 +104,9 @@ def update_time_slot(
     db: Session = Depends(get_db),
 ):
     slot = _get_active_slot(slot_id, dataset, db)
-    for k, v in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    updates.pop("code", None)
+    for k, v in updates.items():
         setattr(slot, k, v)
     db.commit()
     db.refresh(slot)

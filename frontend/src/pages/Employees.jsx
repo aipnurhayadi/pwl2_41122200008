@@ -45,6 +45,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { normalizePaginatedResponse } from "@/lib/paginated";
@@ -59,7 +60,7 @@ const EMPTY_FORM = {
   nip: "",
   front_title: "",
   back_title: "",
-  email: "",
+  user_email: "",
   phone: "",
   gender: "",
 };
@@ -75,7 +76,7 @@ function normalizePayload(form) {
     nip: trimmed.nip || null,
     front_title: trimmed.front_title || null,
     back_title: trimmed.back_title || null,
-    email: trimmed.email || null,
+    user_email: trimmed.user_email || null,
     phone: trimmed.phone || null,
     gender: trimmed.gender || null,
   };
@@ -148,7 +149,7 @@ export default function Employees() {
       nip: row.nip ?? "",
       front_title: row.front_title ?? "",
       back_title: row.back_title ?? "",
-      email: row.email ?? "",
+      user_email: row.user_email ?? "",
       phone: row.phone ?? "",
       gender: row.gender ?? "",
     });
@@ -256,7 +257,7 @@ export default function Employees() {
               <TableRow>
                 <TableHead>Kode</TableHead>
                 <TableHead>Nama</TableHead>
-                <TableHead>Email</TableHead>
+                <TableHead>Email User</TableHead>
                 <TableHead>NIDN</TableHead>
                 <TableHead>NIP</TableHead>
                 <TableHead>Gender</TableHead>
@@ -275,7 +276,7 @@ export default function Employees() {
                 <TableRow key={row.id}>
                   <TableCell className="font-mono font-medium">{row.employee_code}</TableCell>
                   <TableCell>{row.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{row.email || "-"}</TableCell>
+                  <TableCell className="text-muted-foreground">{row.user_email || "-"}</TableCell>
                   <TableCell>{row.nidn || "-"}</TableCell>
                   <TableCell>{row.nip || "-"}</TableCell>
                   <TableCell>
@@ -358,12 +359,12 @@ export default function Employees() {
               />
             </div>
             <div className="col-span-2 space-y-1">
-              <Label htmlFor="e-email">Email</Label>
+              <Label htmlFor="e-email">Email User</Label>
               <Input
                 id="e-email"
                 type="email"
-                value={form.email}
-                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                value={form.user_email}
+                onChange={(e) => setForm((prev) => ({ ...prev, user_email: e.target.value }))}
               />
             </div>
             <div className="space-y-1">
@@ -400,16 +401,19 @@ export default function Employees() {
       </Dialog>
 
       <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent size="sm">
           <AlertDialogHeader>
+            <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive">
+              <Trash2 className="h-5 w-5" />
+            </AlertDialogMedia>
             <AlertDialogTitle>Hapus Employee</AlertDialogTitle>
             <AlertDialogDescription>
               Yakin ingin menghapus employee <span className="font-medium text-foreground">{deleteTarget?.name}</span>? Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={saving}>
+            <AlertDialogCancel variant="outline">Batal</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>
