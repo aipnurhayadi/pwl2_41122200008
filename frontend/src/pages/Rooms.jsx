@@ -12,6 +12,7 @@ import DataTablePagination from "@/components/DataTablePagination";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { normalizePaginatedResponse } from "@/lib/paginated";
 
 const ROOM_TYPES = ["TEORI", "LABORATORIUM", "AULA", "SEMINAR"];
 const EMPTY_FORM = { building_code: "", floor: "", room_number: "", capacity: "", room_type: "" };
@@ -31,6 +32,7 @@ export default function Rooms() {
   const dsId = paramId ?? selected?.id;
 
   const [rows, setRows] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState(null);
@@ -43,15 +45,32 @@ export default function Rooms() {
   const load = useCallback(async () => {
     if (!dsId || !token) return;
     setLoading(true);
+    setFormError(null);
     try {
-      const res = await fetch(`/api/datasets/${dsId}/rooms/`, {
+      const offset = (page - 1) * PAGE_SIZE;
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+      });
+      if (search.trim()) params.set("q", search.trim());
+
+      const res = await fetch(`/api/datasets/${dsId}/rooms/?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setRows(await res.json());
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? "Gagal memuat ruangan");
+      }
+      const body = await res.json();
+      const normalized = normalizePaginatedResponse(body, PAGE_SIZE, offset);
+      setRows(normalized.items);
+      setTotalItems(normalized.total);
+    } catch (e) {
+      setFormError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [dsId, token]);
+  }, [dsId, token, page, search]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -112,19 +131,14 @@ export default function Rooms() {
 
   const setField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const buildingNamePreview = `${form.building_code}${form.floor}${form.room_number}`;
-  const filtered = rows.filter((r) =>
-    [r.code, r.building_name].some((v) => v?.toLowerCase().includes(search.toLowerCase()))
-  );
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
   useEffect(() => {
     setPage(1);
   }, [search, dsId]);
 
   useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
     if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+  }, [page, totalItems]);
 
   if (!dsId) {
     return (
@@ -172,14 +186,14 @@ export default function Rooms() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 && (
+              {totalItems === 0 && (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     {search ? "Tidak ada hasil pencarian." : "Belum ada data ruangan."}
                   </TableCell>
                 </TableRow>
               )}
-              {paginated.map((r) => (
+              {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono font-medium">{r.code}</TableCell>
                   <TableCell>{r.building_name}</TableCell>
@@ -207,7 +221,7 @@ export default function Rooms() {
           <DataTablePagination
             page={page}
             setPage={setPage}
-            totalItems={filtered.length}
+            totalItems={totalItems}
             pageSize={PAGE_SIZE}
             itemLabel="ruangan"
           />

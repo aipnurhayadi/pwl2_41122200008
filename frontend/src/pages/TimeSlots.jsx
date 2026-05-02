@@ -11,6 +11,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
 import DataTablePagination from "@/components/DataTablePagination";
+import { normalizePaginatedResponse } from "@/lib/paginated";
 
 const DAY_LABELS = {
   MON: "Senin", TUE: "Selasa", WED: "Rabu", THU: "Kamis",
@@ -30,6 +31,7 @@ export default function TimeSlots() {
   const dsId = paramId ?? selected?.id;
 
   const [rows, setRows] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState(null);
@@ -42,15 +44,32 @@ export default function TimeSlots() {
   const load = useCallback(async () => {
     if (!dsId || !token) return;
     setLoading(true);
+    setFormError(null);
     try {
-      const res = await fetch(`/api/datasets/${dsId}/time-slots/`, {
+      const offset = (page - 1) * PAGE_SIZE;
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+      });
+      if (search.trim()) params.set("q", search.trim());
+
+      const res = await fetch(`/api/datasets/${dsId}/time-slots/?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setRows(await res.json());
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? "Gagal memuat slot waktu");
+      }
+      const body = await res.json();
+      const normalized = normalizePaginatedResponse(body, PAGE_SIZE, offset);
+      setRows(normalized.items);
+      setTotalItems(normalized.total);
+    } catch (e) {
+      setFormError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [dsId, token]);
+  }, [dsId, token, page, search]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -106,19 +125,14 @@ export default function TimeSlots() {
   };
 
   const setField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const filtered = rows.filter((r) =>
-    (DAY_LABELS[r.day] ?? r.day ?? "").toLowerCase().includes(search.toLowerCase())
-  );
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
   useEffect(() => {
     setPage(1);
   }, [search, dsId]);
 
   useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
     if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+  }, [page, totalItems]);
 
   if (!dsId) {
     return (
@@ -164,14 +178,14 @@ export default function TimeSlots() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 && (
+              {totalItems === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                     {search ? "Tidak ada hasil pencarian." : "Belum ada data slot waktu."}
                   </TableCell>
                 </TableRow>
               )}
-              {paginated.map((r) => (
+              {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{DAY_LABELS[r.day] ?? r.day}</TableCell>
                   <TableCell className="font-mono">{fmtTime(r.start_time)}</TableCell>
@@ -189,7 +203,7 @@ export default function TimeSlots() {
           <DataTablePagination
             page={page}
             setPage={setPage}
-            totalItems={filtered.length}
+            totalItems={totalItems}
             pageSize={PAGE_SIZE}
             itemLabel="slot waktu"
           />

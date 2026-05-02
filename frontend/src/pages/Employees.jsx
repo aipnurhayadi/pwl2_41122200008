@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Briefcase,
   Plus,
@@ -37,6 +37,7 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { normalizePaginatedResponse } from "@/lib/paginated";
 
 const PAGE_SIZE = 10;
 
@@ -71,6 +72,7 @@ function normalizePayload(form) {
 export default function Employees() {
   const { token } = useAuth();
   const [rows, setRows] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -80,50 +82,48 @@ export default function Employees() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [page, setPage] = useState(1);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/employees/", {
+      const offset = (page - 1) * PAGE_SIZE;
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+      });
+      if (search.trim()) params.set("q", search.trim());
+
+      const res = await fetch(`/api/employees/?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.detail ?? "Gagal memuat employee");
       }
-      setRows(await res.json());
+      const body = await res.json();
+      const normalized = normalizePaginatedResponse(body, PAGE_SIZE, offset);
+      setRows(normalized.items);
+      setTotalItems(normalized.total);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [token, page, search]);
 
   useEffect(() => {
     load();
-  }, [token]);
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) =>
-      [row.employee_code, row.name, row.email, row.nidn, row.nip]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q))
-    );
-  }, [rows, search]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  }, [load]);
 
   useEffect(() => {
     setPage(1);
   }, [search]);
 
   useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
     if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+  }, [page, totalItems]);
 
   const openAdd = () => {
     setForm(EMPTY_FORM);
@@ -261,14 +261,14 @@ export default function Employees() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 && (
+              {totalItems === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     {search ? "Tidak ada hasil pencarian." : "Belum ada employee."}
                   </TableCell>
                 </TableRow>
               )}
-              {paginated.map((row) => (
+              {rows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell className="font-mono font-medium">{row.employee_code}</TableCell>
                   <TableCell>{row.name}</TableCell>
@@ -300,7 +300,7 @@ export default function Employees() {
           <DataTablePagination
             page={page}
             setPage={setPage}
-            totalItems={filtered.length}
+            totalItems={totalItems}
             pageSize={PAGE_SIZE}
             itemLabel="employee"
           />
