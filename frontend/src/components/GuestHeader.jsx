@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { CalendarDays, LogIn, UserPlus } from "lucide-react";
+import { LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ModeToggle from "@/components/ModeToggle";
 
@@ -8,7 +8,6 @@ export default function GuestHeader() {
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2 font-semibold text-lg">
-          <CalendarDays className="h-5 w-5 text-primary" />
           <span>TIMETABLE TOOL</span>
         </Link>
         <nav className="flex items-center gap-3">
