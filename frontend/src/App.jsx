@@ -83,7 +83,6 @@ function AppRoutes() {
           <Route path="/login" element={<Login />} />
           <Route path="/lecturer-login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/datasets/:datasetId" element={<DatasetDetail />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>

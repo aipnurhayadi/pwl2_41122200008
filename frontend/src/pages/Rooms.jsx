@@ -12,8 +12,19 @@ import DataTablePagination from "@/components/DataTablePagination";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { normalizePaginatedResponse } from "@/lib/paginated";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { toast } from "sonner";
 
 const ROOM_TYPES = ["TEORI", "LABORATORIUM", "AULA", "SEMINAR"];
 const EMPTY_FORM = { building_code: "", floor: "", room_number: "", capacity: "", room_type: "" };
@@ -68,7 +79,7 @@ export default function Rooms() {
       setRows(normalized.items);
       setTotalItems(normalized.total);
     } catch (e) {
-      setFormError(e.message);
+      toast.error(e.message);
     } finally {
       setLoading(false);
     }
@@ -112,21 +123,28 @@ export default function Rooms() {
     setSaving(false);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      setFormError(err.detail ?? "Gagal menyimpan");
+      toast.error(err.detail ?? "Gagal menyimpan");
       return;
     }
     setDialog(null);
+    toast.success(isEdit ? "Ruangan berhasil diperbarui" : "Ruangan berhasil ditambahkan");
     load();
   };
 
   const handleDelete = async () => {
     if (!delTarget) return;
     setSaving(true);
-    await fetch(`/api/datasets/${dsId}/rooms/${delTarget.id}`, {
+    const res = await fetch(`/api/datasets/${dsId}/rooms/${delTarget.id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
     setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast.error(err.detail ?? "Gagal menghapus ruangan");
+      return;
+    }
+    toast.success("Ruangan berhasil dihapus");
     setDelTarget(null);
     load();
   };
@@ -272,7 +290,6 @@ export default function Rooms() {
                 </SelectPopup>
               </Select>
             </div>
-            {formError && <p className="col-span-2 text-sm text-destructive">{formError}</p>}
           </form>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
@@ -283,22 +300,22 @@ export default function Rooms() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Hapus Ruangan</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground py-1">
-            Yakin ingin menghapus ruangan <span className="font-medium text-foreground">{delTarget?.building_name}</span>?
-          </p>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
-            <Button variant="destructive" onClick={handleDelete} disabled={saving}>
+      <AlertDialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Ruangan</AlertDialogTitle>
+            <AlertDialogDescription>
+              Yakin ingin menghapus ruangan <span className="font-medium text-foreground">{delTarget?.building_name}</span>? Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

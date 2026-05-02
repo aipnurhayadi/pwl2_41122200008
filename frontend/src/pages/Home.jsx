@@ -1,23 +1,20 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { Eye, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import DataTablePagination from "@/components/DataTablePagination";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 10;
 
 export default function Home() {
   const [datasets, setDatasets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
     const run = async () => {
       setLoading(true);
-      setError(null);
       try {
         const res = await fetch("/api/datasets/public");
         if (!res.ok) {
@@ -26,7 +23,7 @@ export default function Home() {
         }
         setDatasets(await res.json());
       } catch (e) {
-        setError(e.message);
+        toast.error(e.message);
       } finally {
         setLoading(false);
       }
@@ -54,8 +51,6 @@ export default function Home() {
         <section className="flex items-center justify-center py-16 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin" />
         </section>
-      ) : error ? (
-        <section className="text-destructive">{error}</section>
       ) : (
         <section className="rounded-lg border overflow-hidden">
           <Table>
@@ -65,13 +60,12 @@ export default function Home() {
                 <TableHead>Nama Dataset</TableHead>
                 <TableHead>Deskripsi</TableHead>
                 <TableHead>Visibility</TableHead>
-                <TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {datasets.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                     Belum ada dataset public.
                   </TableCell>
                 </TableRow>
@@ -82,13 +76,6 @@ export default function Home() {
                   <TableCell className="font-medium">{ds.name}</TableCell>
                   <TableCell className="max-w-[420px] truncate text-muted-foreground">{ds.description || "Tanpa deskripsi"}</TableCell>
                   <TableCell><Badge>{ds.visibility}</Badge></TableCell>
-                  <TableCell>
-                    <Button asChild size="sm" variant="outline">
-                      <Link to={`/datasets/${ds.id}`} className="flex items-center gap-2">
-                        <Eye className="h-4 w-4" /> Detail
-                      </Link>
-                    </Button>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

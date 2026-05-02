@@ -13,26 +13,26 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { UserPlus } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
-  const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
     const err = await register(form.name, form.email, form.password);
     setLoading(false);
     if (err) {
-      setError(err);
+      toast.error(err);
       return;
     }
     setSuccess(true);
+    toast.success("Registrasi berhasil, mengalihkan ke login...");
     setTimeout(() => navigate("/login"), 1500);
   };
 
@@ -48,16 +48,6 @@ export default function Register() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            {error && (
-              <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
-              </p>
-            )}
-            {success && (
-              <p className="rounded-md bg-green-500/10 px-3 py-2 text-sm text-green-600">
-                Registrasi berhasil! Mengalihkan ke halaman login...
-              </p>
-            )}
             <div className="space-y-1">
               <Label htmlFor="name">Nama Lengkap</Label>
               <Input
