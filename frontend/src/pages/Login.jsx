@@ -13,24 +13,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { LogIn } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: "", password: "" });
-  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
     const err = await login(form.email, form.password);
     setLoading(false);
     if (err) {
-      setError(err);
+      toast.error(err);
       return;
     }
+    toast.success("Login berhasil");
     navigate("/");
   };
 
@@ -46,11 +46,6 @@ export default function Login() {
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            {error && (
-              <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
-              </p>
-            )}
             <div className="space-y-1">
               <Label htmlFor="email">Email</Label>
               <Input

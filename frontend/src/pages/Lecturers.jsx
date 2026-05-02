@@ -9,10 +9,21 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
 import DataTablePagination from "@/components/DataTablePagination";
 import { normalizePaginatedResponse } from "@/lib/paginated";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { toast } from "sonner";
 
 const EMPTY_FORM = { employee_id: "" };
 const PAGE_SIZE = 10;
@@ -61,7 +72,7 @@ export default function Lecturers() {
       setRows(normalized.items);
       setTotalItems(normalized.total);
     } catch (e) {
-      setFormError(e.message);
+      toast.error(e.message);
     } finally {
       setLoading(false);
     }
@@ -101,6 +112,10 @@ export default function Lecturers() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    if (!form.employee_id) {
+      toast.error("Karyawan wajib dipilih");
+      return;
+    }
     setSaving(true);
     setFormError(null);
 
@@ -119,21 +134,28 @@ export default function Lecturers() {
     setSaving(false);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      setFormError(err.detail ?? "Gagal menyimpan assignment");
+      toast.error(err.detail ?? "Gagal menyimpan assignment");
       return;
     }
     setDialog(null);
+    toast.success(isEdit ? "Assignment berhasil diperbarui" : "Assignment berhasil ditambahkan");
     loadAssignments();
   };
 
   const handleDelete = async () => {
     if (!delTarget) return;
     setSaving(true);
-    await fetch(`/api/datasets/${dsId}/lecturers/${delTarget.id}`, {
+    const res = await fetch(`/api/datasets/${dsId}/lecturers/${delTarget.id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
     setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast.error(err.detail ?? "Gagal menghapus assignment");
+      return;
+    }
+    toast.success("Assignment berhasil dihapus");
     setDelTarget(null);
     loadAssignments();
   };
@@ -253,7 +275,6 @@ export default function Lecturers() {
                 </SelectPopup>
               </Select>
             </div>
-            {formError && <p className="text-sm text-destructive">{formError}</p>}
           </form>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
@@ -264,20 +285,22 @@ export default function Lecturers() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Hapus Assignment</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground py-1">
-            Yakin ingin menghapus assignment <span className="font-medium text-foreground">{delTarget?.code ?? ""}</span>?
-          </p>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
-            <Button variant="destructive" onClick={handleDelete} disabled={saving}>
+      <AlertDialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Assignment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Yakin ingin menghapus assignment <span className="font-medium text-foreground">{delTarget?.code ?? ""}</span>? Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

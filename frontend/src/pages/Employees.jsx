@@ -37,8 +37,19 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { normalizePaginatedResponse } from "@/lib/paginated";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 10;
 
@@ -76,7 +87,6 @@ export default function Employees() {
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -87,7 +97,6 @@ export default function Employees() {
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    setError(null);
     try {
       const offset = (page - 1) * PAGE_SIZE;
       const params = new URLSearchParams({
@@ -108,7 +117,7 @@ export default function Employees() {
       setRows(normalized.items);
       setTotalItems(normalized.total);
     } catch (e) {
-      setError(e.message);
+      toast.error(e.message);
     } finally {
       setLoading(false);
     }
@@ -129,7 +138,6 @@ export default function Employees() {
 
   const openAdd = () => {
     setForm(EMPTY_FORM);
-    setError(null);
     setDialog({ mode: "add" });
   };
 
@@ -144,7 +152,6 @@ export default function Employees() {
       phone: row.phone ?? "",
       gender: row.gender ?? "",
     });
-    setError(null);
     setDialog({ mode: "edit", row });
   };
 
@@ -157,7 +164,6 @@ export default function Employees() {
     const endpoint = isEdit ? `/api/employees/${target.id}` : "/api/employees/";
 
     setSaving(true);
-    setError(null);
 
     try {
       const res = await fetch(endpoint, {
@@ -174,9 +180,10 @@ export default function Employees() {
       }
 
       setDialog(null);
+      toast.success(isEdit ? "Employee berhasil diperbarui" : "Employee berhasil ditambahkan");
       await load();
     } catch (e) {
-      setError(e.message);
+      toast.error(e.message);
     } finally {
       setSaving(false);
     }
@@ -186,7 +193,6 @@ export default function Employees() {
     if (!deleteTarget) return;
 
     setSaving(true);
-    setError(null);
     try {
       const res = await fetch(`/api/employees/${deleteTarget.id}`, {
         method: "DELETE",
@@ -198,9 +204,10 @@ export default function Employees() {
       }
 
       setDeleteTarget(null);
+      toast.success("Employee berhasil dihapus");
       await load();
     } catch (e) {
-      setError(e.message);
+      toast.error(e.message);
     } finally {
       setSaving(false);
     }
@@ -237,12 +244,6 @@ export default function Employees() {
           </button>
         )}
       </div>
-
-      {error && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      )}
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -398,22 +399,22 @@ export default function Employees() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Hapus Employee</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground py-1">
-            Yakin ingin menghapus employee <span className="font-medium text-foreground">{deleteTarget?.name}</span>?
-          </p>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
-            <Button variant="destructive" onClick={handleDelete} disabled={saving}>
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Employee</AlertDialogTitle>
+            <AlertDialogDescription>
+              Yakin ingin menghapus employee <span className="font-medium text-foreground">{deleteTarget?.name}</span>? Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

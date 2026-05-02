@@ -21,6 +21,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription as AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 const API = "/api/items";
 
@@ -30,7 +41,6 @@ export default function Items() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -47,13 +57,12 @@ export default function Items() {
   // ---------------------------------------------------------------------------
   async function fetchItems() {
     setLoading(true);
-    setError(null);
     try {
       const res = await fetch(API);
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       setItems(await res.json());
     } catch (e) {
-      setError(e.message);
+      toast.error(e.message);
     } finally {
       setLoading(false);
     }
@@ -103,9 +112,10 @@ export default function Items() {
         throw new Error(data.detail ?? `Server error: ${res.status}`);
       }
       setDialogOpen(false);
+      toast.success(editingItem ? "Item berhasil diperbarui" : "Item berhasil ditambahkan");
       await fetchItems();
     } catch (e) {
-      setFormError(e.message);
+      toast.error(e.message);
     } finally {
       setSaving(false);
     }
@@ -121,9 +131,10 @@ export default function Items() {
       const res = await fetch(`${API}/${deleteTarget.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       setDeleteTarget(null);
+      toast.success("Item berhasil dihapus");
       await fetchItems();
     } catch (e) {
-      setError(e.message);
+      toast.error(e.message);
     } finally {
       setDeleting(false);
     }
@@ -146,13 +157,6 @@ export default function Items() {
           <Plus className="h-4 w-4" /> Add Item
         </Button>
       </div>
-
-      {/* Error banner */}
-      {error && (
-        <div className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
 
       {/* Table */}
       <div className="rounded-md border">
@@ -270,27 +274,23 @@ export default function Items() {
       </Dialog>
 
       {/* Delete Confirm Dialog */}
-      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Delete Item</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete{" "}
-              <span className="font-semibold">&quot;{deleteTarget?.name}&quot;</span>?
-              This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="sm:max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Item</AlertDialogTitle>
+            <AlertDialogBody>
+              Are you sure you want to delete <span className="font-semibold">&quot;{deleteTarget?.name}&quot;</span>? This action cannot be undone.
+            </AlertDialogBody>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={deleting}>
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

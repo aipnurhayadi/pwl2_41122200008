@@ -6,6 +6,7 @@ from typing import Optional
 from pydantic import BaseModel, EmailStr
 
 from app.models import (
+    ConstraintTypeEnum,
     DatasetVisibilityEnum,
     DayEnum,
     GenderEnum,
@@ -418,6 +419,65 @@ class PaginatedClassRead(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+# ===========================================================================
+# Solver Criteria
+# ===========================================================================
+class CriterionCreate(BaseModel):
+    type: ConstraintTypeEnum
+    code: Optional[str] = None
+    name: str
+    description: Optional[str] = None
+
+
+class CriterionRead(BaseModel):
+    id: int
+    type: ConstraintTypeEnum
+    code: str
+    name: str
+    description: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+# ===========================================================================
+# BWM
+# ===========================================================================
+class BwmVectorInput(BaseModel):
+    criterion_id: int
+    value: int
+
+
+class BwmResponseUpsert(BaseModel):
+    best_criteria_id: int
+    worst_criteria_id: int
+    best_to_others: list[BwmVectorInput]
+    others_to_worst: list[BwmVectorInput]
+
+
+class BwmVectorRead(BaseModel):
+    criterion_id: int
+    value: int
+
+
+class BwmWeightRead(BaseModel):
+    criterion_id: int
+    weight: float
+
+
+class BwmResponseRead(BaseModel):
+    lecturer_id: int
+    best_criteria_id: int
+    worst_criteria_id: int
+    scale_max: int
+    ksi: Optional[float] = None
+    consistency_ratio: Optional[float] = None
+    best_to_others: list[BwmVectorRead]
+    others_to_worst: list[BwmVectorRead]
+    weights: list[BwmWeightRead] = []
 
 
 

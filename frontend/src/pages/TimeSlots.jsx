@@ -9,10 +9,21 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
 import DataTablePagination from "@/components/DataTablePagination";
 import { normalizePaginatedResponse } from "@/lib/paginated";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { toast } from "sonner";
 
 const DAY_LABELS = {
   MON: "Senin", TUE: "Selasa", WED: "Rabu", THU: "Kamis",
@@ -67,7 +78,7 @@ export default function TimeSlots() {
       setRows(normalized.items);
       setTotalItems(normalized.total);
     } catch (e) {
-      setFormError(e.message);
+      toast.error(e.message);
     } finally {
       setLoading(false);
     }
@@ -107,21 +118,28 @@ export default function TimeSlots() {
     setSaving(false);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      setFormError(err.detail ?? "Gagal menyimpan");
+      toast.error(err.detail ?? "Gagal menyimpan");
       return;
     }
     setDialog(null);
+    toast.success(isEdit ? "Slot waktu berhasil diperbarui" : "Slot waktu berhasil ditambahkan");
     load();
   };
 
   const handleDelete = async () => {
     if (!delTarget) return;
     setSaving(true);
-    await fetch(`/api/datasets/${dsId}/time-slots/${delTarget.id}`, {
+    const res = await fetch(`/api/datasets/${dsId}/time-slots/${delTarget.id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
     setSaving(false);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast.error(err.detail ?? "Gagal menghapus slot waktu");
+      return;
+    }
+    toast.success("Slot waktu berhasil dihapus");
     setDelTarget(null);
     load();
   };
@@ -244,7 +262,6 @@ export default function TimeSlots() {
                 <input id="s-end" type="time" value={form.end_time} onChange={setField("end_time")} required className={timeInputClass} />
               </div>
             </div>
-            {formError && <p className="text-sm text-destructive">{formError}</p>}
           </form>
           <DialogFooter>
             <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
@@ -255,23 +272,25 @@ export default function TimeSlots() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Hapus Slot Waktu</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground py-1">
-            Yakin ingin menghapus slot{" "}
-            <span className="font-medium text-foreground">
-              {delTarget ? `${DAY_LABELS[delTarget.day] ?? delTarget.day} ${fmtTime(delTarget.start_time)}–${fmtTime(delTarget.end_time)}` : ""}
-            </span>?
-          </p>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
-            <Button variant="destructive" onClick={handleDelete} disabled={saving}>
+      <AlertDialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Slot Waktu</AlertDialogTitle>
+            <AlertDialogDescription>
+              Yakin ingin menghapus slot{" "}
+              <span className="font-medium text-foreground">
+                {delTarget ? `${DAY_LABELS[delTarget.day] ?? delTarget.day} ${fmtTime(delTarget.start_time)}–${fmtTime(delTarget.end_time)}` : ""}
+              </span>? Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

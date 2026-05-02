@@ -37,9 +37,20 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/context/AuthContext";
 import { normalizePaginatedResponse } from "@/lib/paginated";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 10;
 const EMPTY_FORM = { name: "", description: "", visibility: "PRIVATE" };
@@ -62,7 +73,6 @@ export default function Datasets() {
   const [dialog, setDialog] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -70,7 +80,6 @@ export default function Datasets() {
   const load = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    setError(null);
     try {
       const offset = (page - 1) * PAGE_SIZE;
       const params = new URLSearchParams({
@@ -92,7 +101,7 @@ export default function Datasets() {
       setRows(normalized.items);
       setTotalItems(normalized.total);
     } catch (e) {
-      setError(e.message);
+      toast.error(e.message);
     } finally {
       setLoading(false);
     }
@@ -113,7 +122,6 @@ export default function Datasets() {
 
   const openAdd = () => {
     setForm(EMPTY_FORM);
-    setError(null);
     setDialog({ mode: "add" });
   };
 
@@ -123,7 +131,6 @@ export default function Datasets() {
       description: row.description ?? "",
       visibility: row.visibility ?? "PRIVATE",
     });
-    setError(null);
     setDialog({ mode: "edit", row });
   };
 
@@ -138,7 +145,6 @@ export default function Datasets() {
     };
 
     setSaving(true);
-    setError(null);
 
     let res;
     if (dialog?.mode === "edit") {
@@ -153,11 +159,12 @@ export default function Datasets() {
     setSaving(false);
 
     if (res?.error) {
-      setError(res.error);
+      toast.error(res.error);
       return;
     }
 
     setDialog(null);
+    toast.success(dialog?.mode === "edit" ? "Dataset berhasil diperbarui" : "Dataset berhasil ditambahkan");
     await refetch();
     await load();
   };
@@ -166,15 +173,15 @@ export default function Datasets() {
     if (!deleteTarget) return;
 
     setSaving(true);
-    setError(null);
     const res = await deleteDataset(deleteTarget.id);
     setSaving(false);
 
     if (res?.error) {
-      setError(res.error);
+      toast.error(res.error);
       return;
     }
 
+    toast.success("Dataset berhasil dihapus");
     setDeleteTarget(null);
     await refetch();
     await load();
@@ -211,12 +218,6 @@ export default function Datasets() {
           </button>
         )}
       </div>
-
-      {error && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      )}
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -333,22 +334,22 @@ export default function Datasets() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Hapus Dataset</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground py-1">
-            Yakin ingin menghapus dataset <span className="font-medium text-foreground">{deleteTarget?.name}</span>?
-          </p>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
-            <Button variant="destructive" onClick={handleDelete} disabled={saving}>
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Dataset</AlertDialogTitle>
+            <AlertDialogDescription>
+              Yakin ingin menghapus dataset <span className="font-medium text-foreground">{deleteTarget?.name}</span>? Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

@@ -1,7 +1,7 @@
 import enum
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Enum, ForeignKey,
+    Boolean, CheckConstraint, Column, DateTime, Enum, Float, ForeignKey,
     Integer, String, Table, Text, Time, UniqueConstraint, func,
 )
 from sqlalchemy.orm import relationship
@@ -132,6 +132,7 @@ class Dataset(SoftDeleteMixin, Base):
     courses = relationship("Course", back_populates="dataset", cascade="all, delete-orphan")
     time_slots = relationship("TimeSlot", back_populates="dataset", cascade="all, delete-orphan")
     classes = relationship("Class", back_populates="dataset", cascade="all, delete-orphan")
+    bwm_responses = relationship("BwmResponse", back_populates="dataset", cascade="all, delete-orphan")
 
 
 # ---------------------------------------------------------------------------
@@ -157,6 +158,11 @@ class DayEnum(str, enum.Enum):
     FRI = "FRI"
     SAT = "SAT"
     SUN = "SUN"
+
+
+class ConstraintTypeEnum(str, enum.Enum):
+    HARD = "HARD"
+    SOFT = "SOFT"
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +203,7 @@ class Lecturer(SoftDeleteMixin, Base):
     dataset = relationship("Dataset", back_populates="lecturers")
     employee = relationship("Employee", back_populates="lecturer_assignments")
     courses = relationship("Course", secondary=lecturer_courses, back_populates="lecturers")
+    bwm_responses = relationship("BwmResponse", back_populates="lecturer", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint("dataset_id", "code", name="uq_lecturer_dataset_code"),
@@ -259,3 +266,107 @@ class Class(SoftDeleteMixin, Base):
     dataset = relationship("Dataset", back_populates="classes")
 
     __table_args__ = (UniqueConstraint("dataset_id", "code", name="uq_class_dataset_code"),)
+
+
+# ---------------------------------------------------------------------------
+# Solver Criteria (Hard/Soft)
+# ---------------------------------------------------------------------------
+class Criterion(Base):
+    __tablename__ = "criteria"
+
+    id = Column(Integer, primary_key=True, index=True)
+    type = Column(Enum(ConstraintTypeEnum), nullable=False, index=True)
+    code = Column(String(20), nullable=False, unique=True, index=True)
+    name = Column(String(100), nullable=False, unique=True, index=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    bwm_responses_as_best = relationship("BwmResponse", foreign_keys="BwmResponse.best_criteria_id")
+    bwm_responses_as_worst = relationship("BwmResponse", foreign_keys="BwmResponse.worst_criteria_id")
+    bwm_best_to_others = relationship("BwmBestToOther", back_populates="criterion")
+    bwm_others_to_worst = relationship("BwmOtherToWorst", back_populates="criterion")
+    bwm_weights = relationship("BwmWeight", back_populates="criterion")
+
+
+# ---------------------------------------------------------------------------
+# BWM (Best Worst Method)
+# ---------------------------------------------------------------------------
+class BwmResponse(Base):
+    __tablename__ = "bwm_responses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False, index=True)
+    lecturer_id = Column(Integer, ForeignKey("lecturers.id", ondelete="CASCADE"), nullable=False, index=True)
+    best_criteria_id = Column(Integer, ForeignKey("criteria.id", ondelete="RESTRICT"), nullable=False)
+    worst_criteria_id = Column(Integer, ForeignKey("criteria.id", ondelete="RESTRICT"), nullable=False)
+    scale_max = Column(Integer, nullable=False, default=9, server_default="9")
+    ksi = Column(Float, nullable=True)
+    consistency_ratio = Column(Float, nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    dataset = relationship("Dataset", back_populates="bwm_responses")
+    lecturer = relationship("Lecturer", back_populates="bwm_responses")
+    best_criterion = relationship("Criterion", foreign_keys=[best_criteria_id])
+    worst_criterion = relationship("Criterion", foreign_keys=[worst_criteria_id])
+    best_to_others = relationship("BwmBestToOther", back_populates="response", cascade="all, delete-orphan")
+    others_to_worst = relationship("BwmOtherToWorst", back_populates="response", cascade="all, delete-orphan")
+    weights = relationship("BwmWeight", back_populates="response", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint("dataset_id", "lecturer_id", name="uq_bwm_response_dataset_lecturer"),
+        CheckConstraint("best_criteria_id <> worst_criteria_id", name="ck_bwm_best_worst_not_equal"),
+        CheckConstraint("scale_max >= 3 AND scale_max <= 9", name="ck_bwm_scale_max_range"),
+    )
+
+
+class BwmBestToOther(Base):
+    __tablename__ = "bwm_best_to_others"
+
+    id = Column(Integer, primary_key=True, index=True)
+    response_id = Column(Integer, ForeignKey("bwm_responses.id", ondelete="CASCADE"), nullable=False, index=True)
+    criterion_id = Column(Integer, ForeignKey("criteria.id", ondelete="CASCADE"), nullable=False, index=True)
+    value = Column(Integer, nullable=False)
+
+    response = relationship("BwmResponse", back_populates="best_to_others")
+    criterion = relationship("Criterion", back_populates="bwm_best_to_others")
+
+    __table_args__ = (
+        UniqueConstraint("response_id", "criterion_id", name="uq_bwm_best_to_other_response_criterion"),
+        CheckConstraint("value >= 1 AND value <= 9", name="ck_bwm_best_to_other_value_range"),
+    )
+
+
+class BwmOtherToWorst(Base):
+    __tablename__ = "bwm_others_to_worst"
+
+    id = Column(Integer, primary_key=True, index=True)
+    response_id = Column(Integer, ForeignKey("bwm_responses.id", ondelete="CASCADE"), nullable=False, index=True)
+    criterion_id = Column(Integer, ForeignKey("criteria.id", ondelete="CASCADE"), nullable=False, index=True)
+    value = Column(Integer, nullable=False)
+
+    response = relationship("BwmResponse", back_populates="others_to_worst")
+    criterion = relationship("Criterion", back_populates="bwm_others_to_worst")
+
+    __table_args__ = (
+        UniqueConstraint("response_id", "criterion_id", name="uq_bwm_other_to_worst_response_criterion"),
+        CheckConstraint("value >= 1 AND value <= 9", name="ck_bwm_other_to_worst_value_range"),
+    )
+
+
+class BwmWeight(Base):
+    __tablename__ = "bwm_weights"
+
+    id = Column(Integer, primary_key=True, index=True)
+    response_id = Column(Integer, ForeignKey("bwm_responses.id", ondelete="CASCADE"), nullable=False, index=True)
+    criterion_id = Column(Integer, ForeignKey("criteria.id", ondelete="CASCADE"), nullable=False, index=True)
+    weight = Column(Float, nullable=False)
+
+    response = relationship("BwmResponse", back_populates="weights")
+    criterion = relationship("Criterion", back_populates="bwm_weights")
+
+    __table_args__ = (
+        UniqueConstraint("response_id", "criterion_id", name="uq_bwm_weight_response_criterion"),
+        CheckConstraint("weight >= 0", name="ck_bwm_weight_non_negative"),
+    )

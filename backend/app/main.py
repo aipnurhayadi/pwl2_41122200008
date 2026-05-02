@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 # Use explicit path so .env is found regardless of cwd when uvicorn starts
 load_dotenv(Path(__file__).parent.parent / ".env", override=True)
 
-from app.routers import auth, datasets, rooms, lecturers, courses, time_slots, classes, employees
+from app.routers import auth, bwm, datasets, rooms, lecturers, courses, time_slots, classes, employees
 
 app = FastAPI(title="Timetable API", version="2.0.0")
 
@@ -39,6 +39,7 @@ app.include_router(courses.router)
 app.include_router(time_slots.router)
 app.include_router(classes.router)
 app.include_router(employees.router)
+app.include_router(bwm.router)
 
 # ---------------------------------------------------------------------------
 # Static files — serve Vite build output in production
