@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
 import DataTablePagination from "@/components/DataTablePagination";
 import { normalizePaginatedResponse } from "@/lib/paginated";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const EMPTY_FORM = { employee_id: "" };
 const PAGE_SIZE = 10;
@@ -34,6 +35,7 @@ export default function Lecturers() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [page, setPage] = useState(1);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const loadAssignments = useCallback(async () => {
     if (!dsId || !token) return;
@@ -45,7 +47,7 @@ export default function Lecturers() {
         limit: String(PAGE_SIZE),
         offset: String(offset),
       });
-      if (search.trim()) params.set("q", search.trim());
+      if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
 
       const res = await fetch(`/api/datasets/${dsId}/lecturers/?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -63,7 +65,7 @@ export default function Lecturers() {
     } finally {
       setLoading(false);
     }
-  }, [dsId, token, page, search]);
+  }, [dsId, token, page, debouncedSearch]);
 
   const loadEmployees = useCallback(async () => {
     if (!token || isLecturerRole) return;
@@ -138,7 +140,7 @@ export default function Lecturers() {
 
   useEffect(() => {
     setPage(1);
-  }, [search, dsId]);
+  }, [debouncedSearch, dsId]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));

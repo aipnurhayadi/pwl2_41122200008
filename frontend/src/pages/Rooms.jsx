@@ -13,6 +13,7 @@ import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/c
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { normalizePaginatedResponse } from "@/lib/paginated";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const ROOM_TYPES = ["TEORI", "LABORATORIUM", "AULA", "SEMINAR"];
 const EMPTY_FORM = { building_code: "", floor: "", room_number: "", capacity: "", room_type: "" };
@@ -41,6 +42,7 @@ export default function Rooms() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [page, setPage] = useState(1);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const load = useCallback(async () => {
     if (!dsId || !token) return;
@@ -52,7 +54,7 @@ export default function Rooms() {
         limit: String(PAGE_SIZE),
         offset: String(offset),
       });
-      if (search.trim()) params.set("q", search.trim());
+      if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
 
       const res = await fetch(`/api/datasets/${dsId}/rooms/?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -70,7 +72,7 @@ export default function Rooms() {
     } finally {
       setLoading(false);
     }
-  }, [dsId, token, page, search]);
+  }, [dsId, token, page, debouncedSearch]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -133,7 +135,7 @@ export default function Rooms() {
   const buildingNamePreview = `${form.building_code}${form.floor}${form.room_number}`;
   useEffect(() => {
     setPage(1);
-  }, [search, dsId]);
+  }, [debouncedSearch, dsId]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));

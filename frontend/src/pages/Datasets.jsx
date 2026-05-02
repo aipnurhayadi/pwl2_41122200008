@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
 import { normalizePaginatedResponse } from "@/lib/paginated";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const PAGE_SIZE = 10;
 const EMPTY_FORM = { name: "", description: "", visibility: "PRIVATE" };
@@ -64,6 +65,7 @@ export default function Datasets() {
   const [error, setError] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [page, setPage] = useState(1);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -75,7 +77,7 @@ export default function Datasets() {
         limit: String(PAGE_SIZE),
         offset: String(offset),
       });
-      if (search.trim()) params.set("q", search.trim());
+      if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
 
       const res = await fetch(`/api/datasets/?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -94,7 +96,7 @@ export default function Datasets() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, search]);
+  }, [token, page, debouncedSearch]);
 
   useEffect(() => {
     load();
@@ -102,7 +104,7 @@ export default function Datasets() {
 
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
