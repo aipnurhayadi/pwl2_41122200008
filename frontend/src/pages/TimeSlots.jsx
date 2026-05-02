@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogC
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
 import DataTablePagination from "@/components/DataTablePagination";
 import { normalizePaginatedResponse } from "@/lib/paginated";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const DAY_LABELS = {
   MON: "Senin", TUE: "Selasa", WED: "Rabu", THU: "Kamis",
@@ -40,6 +41,7 @@ export default function TimeSlots() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [page, setPage] = useState(1);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const load = useCallback(async () => {
     if (!dsId || !token) return;
@@ -51,7 +53,7 @@ export default function TimeSlots() {
         limit: String(PAGE_SIZE),
         offset: String(offset),
       });
-      if (search.trim()) params.set("q", search.trim());
+      if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
 
       const res = await fetch(`/api/datasets/${dsId}/time-slots/?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -69,7 +71,7 @@ export default function TimeSlots() {
     } finally {
       setLoading(false);
     }
-  }, [dsId, token, page, search]);
+  }, [dsId, token, page, debouncedSearch]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -127,7 +129,7 @@ export default function TimeSlots() {
   const setField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   useEffect(() => {
     setPage(1);
-  }, [search, dsId]);
+  }, [debouncedSearch, dsId]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));

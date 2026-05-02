@@ -38,6 +38,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { normalizePaginatedResponse } from "@/lib/paginated";
+import { useDebouncedValue } from "@/lib/useDebouncedValue";
 
 const PAGE_SIZE = 10;
 
@@ -81,6 +82,7 @@ export default function Employees() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [page, setPage] = useState(1);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -92,7 +94,7 @@ export default function Employees() {
         limit: String(PAGE_SIZE),
         offset: String(offset),
       });
-      if (search.trim()) params.set("q", search.trim());
+      if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
 
       const res = await fetch(`/api/employees/?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -110,7 +112,7 @@ export default function Employees() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, search]);
+  }, [token, page, debouncedSearch]);
 
   useEffect(() => {
     load();
@@ -118,7 +120,7 @@ export default function Employees() {
 
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
