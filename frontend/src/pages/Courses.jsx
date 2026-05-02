@@ -137,14 +137,14 @@ export default function Courses() {
 
   if (!dsId) {
     return (
-      <main className="container mx-auto max-w-5xl px-4 py-8">
+      <main className="container mx-auto max-w-6xl px-4 py-8">
         <p className="text-muted-foreground">Pilih dataset terlebih dahulu.</p>
       </main>
     );
   }
 
   return (
-    <main className="container mx-auto max-w-5xl px-4 py-8 space-y-6">
+    <main className="container mx-auto max-w-6xl px-4 py-8 space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">

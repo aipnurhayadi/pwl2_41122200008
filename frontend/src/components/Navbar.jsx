@@ -1,8 +1,13 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Database, LogOut, User } from "lucide-react";
+import { ChevronDown, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
 import { useDataset } from "@/context/DatasetContext";
@@ -40,9 +45,7 @@ export default function Navbar() {
     }
   }, [pathname, datasets, selected?.id, selectDataset]);
 
-  const handleDatasetChange = (value) => {
-    const nextId = Number(value);
-    const next = datasets.find((d) => d.id === nextId);
+  const handleDatasetSelect = (next) => {
     if (!next) return;
 
     selectDataset(next);
@@ -52,22 +55,25 @@ export default function Navbar() {
   return (
     <header className="hidden md:flex sticky top-0 z-30 h-14 items-center justify-between border-b bg-background/95 backdrop-blur px-4">
       <div className="flex items-center gap-3 min-w-0">
-        <Database className="h-4 w-4 text-primary shrink-0" />
-        <Select
-          value={selected?.id ? String(selected.id) : undefined}
-          onValueChange={handleDatasetChange}
-        >
-          <SelectTrigger className="w-[280px]" id="dataset-switcher">
-            <SelectValue placeholder={loading ? "Memuat dataset..." : "Pilih dataset"} />
-          </SelectTrigger>
-          <SelectPopup>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="w-[180px]" id="dataset-switcher" disabled={loading || datasets.length === 0}>
+            <span className="truncate text-left">
+              {loading ? "Memuat dataset..." : (selected?.name ?? "Pilih dataset")}
+            </span>
+            <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
             {datasets.map((ds) => (
-              <SelectItem key={ds.id} value={String(ds.id)}>
+              <DropdownMenuItem
+                key={ds.id}
+                selected={selected?.id === ds.id}
+                onClick={() => handleDatasetSelect(ds)}
+              >
                 {ds.name}
-              </SelectItem>
+              </DropdownMenuItem>
             ))}
-          </SelectPopup>
-        </Select>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex items-center gap-2 shrink-0">

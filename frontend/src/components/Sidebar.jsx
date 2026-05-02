@@ -4,7 +4,6 @@ import {
   GraduationCap,
   BookOpen,
   Clock,
-  CalendarDays,
   Menu,
   X,
   ChevronLeft,
@@ -15,13 +14,18 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { useDataset } from "@/context/DatasetContext";
+import { Separator } from "@/components/ui/separator";
 
 const adminLinks = [
   { path: "home", label: "Home", icon: Home, datasetAware: false },
   { path: "datasets", label: "Datasets", icon: Database, datasetAware: false },
-  { path: "employees", label: "Employee", icon: Briefcase, datasetAware: false },
+  {
+    path: "employees",
+    label: "Employee",
+    icon: Briefcase,
+    datasetAware: false,
+  },
 ];
 
 const masterLinks = [
@@ -41,13 +45,16 @@ function NavLinks({ collapsed, closeMenu }) {
 
   return (
     <>
-      {!collapsed && (
+      {collapsed ? (
+        <Separator className="my-4" />
+      ) : (
         <p className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Admin
         </p>
       )}
       {adminLinks.map(({ path, label, icon: Icon, datasetAware }) => {
-        const to = datasetAware && activeId ? `/${activeId}/${path}` : `/${path}`;
+        const to =
+          datasetAware && activeId ? `/${activeId}/${path}` : `/${path}`;
         const isActive = pathname === to;
         return (
           <Button
@@ -66,7 +73,9 @@ function NavLinks({ collapsed, closeMenu }) {
         );
       })}
 
-      {!collapsed && (
+      {collapsed ? (
+        <Separator className="my-4" />
+      ) : (
         <p className="px-3 pt-4 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Master Data
         </p>
@@ -105,7 +114,6 @@ export default function Sidebar() {
           to="/home"
           className="flex items-center gap-2 font-semibold text-lg"
         >
-          <CalendarDays className="h-5 w-5 text-primary" />
           <span>TIMETABLE TOOL</span>
         </Link>
         <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
@@ -131,7 +139,6 @@ export default function Sidebar() {
             className="flex items-center gap-2 font-semibold text-base"
             onClick={() => setMobileOpen(false)}
           >
-            <CalendarDays className="h-5 w-5 text-primary" />
             <span>TIMETABLE TOOL</span>
           </Link>
           <Button
@@ -142,7 +149,6 @@ export default function Sidebar() {
             <X className="h-5 w-5" />
           </Button>
         </div>
-        <Separator className="my-2" />
         <nav className="flex-1 overflow-y-auto px-2 space-y-0.5">
           <NavLinks collapsed={false} closeMenu={() => setMobileOpen(false)} />
         </nav>
@@ -156,7 +162,7 @@ export default function Sidebar() {
         <div className="flex h-14 items-center justify-between px-3 border-b">
           {collapsed ? (
             <Link to="/home" className="mx-auto">
-              <CalendarDays className="h-5 w-5 text-primary" />
+              <span className="truncate">TT</span>
             </Link>
           ) : (
             <>
@@ -164,7 +170,6 @@ export default function Sidebar() {
                 to="/home"
                 className="flex items-center gap-2 font-semibold text-base min-w-0"
               >
-                <CalendarDays className="h-5 w-5 text-primary shrink-0" />
                 <span className="truncate">TIMETABLE TOOL</span>
               </Link>
               <Button
@@ -179,9 +184,7 @@ export default function Sidebar() {
           )}
         </div>
 
-        <Separator className="my-2" />
-
-        <nav className="flex-1 overflow-y-auto px-2 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto p-2 space-y-2">
           <NavLinks collapsed={collapsed} closeMenu={() => {}} />
         </nav>
 
