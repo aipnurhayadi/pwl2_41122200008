@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Database,
   Plus,
@@ -37,21 +37,26 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { useAuth } from "@/context/AuthContext";
+import { normalizePaginatedResponse } from "@/lib/paginated";
 
 const PAGE_SIZE = 10;
 const EMPTY_FORM = { name: "", description: "", visibility: "PRIVATE" };
 
 export default function Datasets() {
   const {
-    datasets,
     selected,
-    loading,
     selectDataset,
     createDataset,
     updateDataset,
     deleteDataset,
+    refetch,
   } = useDataset();
+  const { token } = useAuth();
 
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [totalItems, setTotalItems] = useState(0);
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -60,26 +65,49 @@ export default function Datasets() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [page, setPage] = useState(1);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return datasets;
-    return datasets.filter((row) =>
-      [row.code, row.name, row.description, row.visibility]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q))
-    );
-  }, [datasets, search]);
+  const load = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const offset = (page - 1) * PAGE_SIZE;
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+      });
+      if (search.trim()) params.set("q", search.trim());
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+      const res = await fetch(`/api/datasets/?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail ?? "Gagal memuat dataset");
+      }
+
+      const body = await res.json();
+      const normalized = normalizePaginatedResponse(body, PAGE_SIZE, offset);
+      setRows(normalized.items);
+      setTotalItems(normalized.total);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [token, page, search]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   useEffect(() => {
     setPage(1);
   }, [search]);
 
   useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
     if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+  }, [page, totalItems]);
 
   const openAdd = () => {
     setForm(EMPTY_FORM);
@@ -128,6 +156,8 @@ export default function Datasets() {
     }
 
     setDialog(null);
+    await refetch();
+    await load();
   };
 
   const handleDelete = async () => {
@@ -144,6 +174,8 @@ export default function Datasets() {
     }
 
     setDeleteTarget(null);
+    await refetch();
+    await load();
   };
 
   return (
@@ -201,14 +233,14 @@ export default function Datasets() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 && (
+              {totalItems === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                     {search ? "Tidak ada hasil pencarian." : "Belum ada dataset."}
                   </TableCell>
                 </TableRow>
               )}
-              {paginated.map((row) => (
+              {rows.map((row) => (
                 <TableRow key={row.id}>
                   <TableCell>
                     <Badge variant="outline">{row.code}</Badge>
@@ -244,7 +276,7 @@ export default function Datasets() {
           <DataTablePagination
             page={page}
             setPage={setPage}
-            totalItems={filtered.length}
+            totalItems={totalItems}
             pageSize={PAGE_SIZE}
             itemLabel="dataset"
           />

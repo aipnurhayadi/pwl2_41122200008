@@ -109,6 +109,13 @@ class DatasetRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PaginatedDatasetRead(BaseModel):
+    items: list[DatasetRead]
+    total: int
+    limit: int
+    offset: int
+
+
 class DatasetTreeRoom(BaseModel):
     id: int
     code: str
@@ -196,6 +203,13 @@ class RoomRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PaginatedRoomRead(BaseModel):
+    items: list[RoomRead]
+    total: int
+    limit: int
+    offset: int
+
+
 # ===========================================================================
 # Employees
 # ===========================================================================
@@ -238,6 +252,13 @@ class EmployeeRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PaginatedEmployeeRead(BaseModel):
+    items: list[EmployeeRead]
+    total: int
+    limit: int
+    offset: int
+
+
 # ===========================================================================
 # Lecturers (employee assignment to dataset)
 # ===========================================================================
@@ -268,6 +289,13 @@ class LecturerRead(BaseModel):
     deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class PaginatedLecturerRead(BaseModel):
+    items: list[LecturerRead]
+    total: int
+    limit: int
+    offset: int
 
 
 # ===========================================================================
@@ -305,6 +333,13 @@ class CourseRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PaginatedCourseRead(BaseModel):
+    items: list[CourseRead]
+    total: int
+    limit: int
+    offset: int
+
+
 # ===========================================================================
 # Time Slots
 # ===========================================================================
@@ -331,6 +366,13 @@ class TimeSlotRead(BaseModel):
     deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class PaginatedTimeSlotRead(BaseModel):
+    items: list[TimeSlotRead]
+    total: int
+    limit: int
+    offset: int
 
 
 # ===========================================================================
@@ -369,6 +411,13 @@ class ClassRead(BaseModel):
     deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class PaginatedClassRead(BaseModel):
+    items: list[ClassRead]
+    total: int
+    limit: int
+    offset: int
 
 
 

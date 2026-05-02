@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -36,16 +37,37 @@ def _get_active_class(class_id: int, dataset: models.Dataset, db: Session) -> mo
     return obj
 
 
-@router.get("/", response_model=list[schemas.ClassRead])
+@router.get("/", response_model=list[schemas.ClassRead] | schemas.PaginatedClassRead)
 def list_classes(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    q: str | None = Query(default=None),
 ):
-    return (
-        db.query(models.Class)
-        .filter(models.Class.dataset_id == dataset.id, models.Class.deleted_at.is_(None))
-        .all()
+    query = db.query(models.Class).filter(
+        models.Class.dataset_id == dataset.id,
+        models.Class.deleted_at.is_(None),
     )
+
+    if q:
+        keyword = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                models.Class.code.ilike(keyword),
+                models.Class.name.ilike(keyword),
+                models.Class.study_program.ilike(keyword),
+            )
+        )
+
+    query = query.order_by(models.Class.code.asc())
+
+    if limit is None:
+        return query.all()
+
+    total = query.count()
+    items = query.offset(offset).limit(limit).all()
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("/", response_model=schemas.ClassRead, status_code=status.HTTP_201_CREATED)

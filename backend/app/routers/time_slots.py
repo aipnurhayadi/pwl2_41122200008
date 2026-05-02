@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import String, cast
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -25,16 +26,31 @@ def _get_active_slot(slot_id: int, dataset: models.Dataset, db: Session) -> mode
     return slot
 
 
-@router.get("/", response_model=list[schemas.TimeSlotRead])
+@router.get("/", response_model=list[schemas.TimeSlotRead] | schemas.PaginatedTimeSlotRead)
 def list_time_slots(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    q: str | None = Query(default=None),
 ):
-    return (
-        db.query(models.TimeSlot)
-        .filter(models.TimeSlot.dataset_id == dataset.id, models.TimeSlot.deleted_at.is_(None))
-        .all()
+    query = db.query(models.TimeSlot).filter(
+        models.TimeSlot.dataset_id == dataset.id,
+        models.TimeSlot.deleted_at.is_(None),
     )
+
+    if q:
+        keyword = f"%{q.strip()}%"
+        query = query.filter(cast(models.TimeSlot.day, String).ilike(keyword))
+
+    query = query.order_by(models.TimeSlot.day.asc(), models.TimeSlot.start_time.asc())
+
+    if limit is None:
+        return query.all()
+
+    total = query.count()
+    items = query.offset(offset).limit(limit).all()
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("/", response_model=schemas.TimeSlotRead, status_code=status.HTTP_201_CREATED)

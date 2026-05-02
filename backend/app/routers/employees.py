@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -38,12 +39,35 @@ def _unique_user_email(db: Session, preferred: str | None, employee_code: str) -
     return candidate
 
 
-@router.get("/", response_model=list[schemas.EmployeeRead])
+@router.get("/", response_model=list[schemas.EmployeeRead] | schemas.PaginatedEmployeeRead)
 def list_employees(
     _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     db: Session = Depends(get_db),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    q: str | None = Query(default=None),
 ):
-    return db.query(models.Employee).order_by(models.Employee.id.asc()).all()
+    query = db.query(models.Employee)
+    if q:
+        keyword = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                models.Employee.employee_code.ilike(keyword),
+                models.Employee.name.ilike(keyword),
+                models.Employee.email.ilike(keyword),
+                models.Employee.nidn.ilike(keyword),
+                models.Employee.nip.ilike(keyword),
+            )
+        )
+
+    query = query.order_by(models.Employee.id.asc())
+
+    if limit is None:
+        return query.all()
+
+    total = query.count()
+    items = query.offset(offset).limit(limit).all()
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("/", response_model=schemas.EmployeeRead, status_code=status.HTTP_201_CREATED)

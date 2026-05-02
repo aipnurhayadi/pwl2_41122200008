@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -52,17 +53,45 @@ def _get_active_lecturer(lecturer_id: int, dataset: models.Dataset, db: Session)
     return lecturer
 
 
-@router.get("/", response_model=list[schemas.LecturerRead])
+@router.get("/", response_model=list[schemas.LecturerRead] | schemas.PaginatedLecturerRead)
 def list_lecturers(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    q: str | None = Query(default=None),
 ):
-    rows = (
+    query = (
         db.query(models.Lecturer)
+        .join(models.Employee, models.Employee.id == models.Lecturer.employee_id)
         .filter(models.Lecturer.dataset_id == dataset.id, models.Lecturer.deleted_at.is_(None))
-        .all()
     )
-    return [_to_read(r) for r in rows]
+
+    if q:
+        keyword = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                models.Lecturer.code.ilike(keyword),
+                models.Employee.employee_code.ilike(keyword),
+                models.Employee.name.ilike(keyword),
+                models.Employee.email.ilike(keyword),
+            )
+        )
+
+    query = query.order_by(models.Lecturer.code.asc())
+
+    if limit is None:
+        rows = query.all()
+        return [_to_read(r) for r in rows]
+
+    total = query.count()
+    rows = query.offset(offset).limit(limit).all()
+    return {
+        "items": [_to_read(r) for r in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.post("/", response_model=schemas.LecturerRead, status_code=status.HTTP_201_CREATED)

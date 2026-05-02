@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -22,12 +23,33 @@ def _compute_code(building_code: str, floor: int, room_number: int) -> str:
     return f"{building_code}{floor}{room_number}"
 
 
-@router.get("/", response_model=list[schemas.RoomRead])
+@router.get("/", response_model=list[schemas.RoomRead] | schemas.PaginatedRoomRead)
 def list_rooms(
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    q: str | None = Query(default=None),
 ):
-    return _active_room_query(dataset.id, db).all()
+    query = _active_room_query(dataset.id, db)
+
+    if q:
+        keyword = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                models.Room.code.ilike(keyword),
+                models.Room.building_name.ilike(keyword),
+            )
+        )
+
+    query = query.order_by(models.Room.code.asc())
+
+    if limit is None:
+        return query.all()
+
+    total = query.count()
+    items = query.offset(offset).limit(limit).all()
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 @router.post("/", response_model=schemas.RoomRead, status_code=status.HTTP_201_CREATED)

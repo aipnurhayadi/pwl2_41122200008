@@ -11,6 +11,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
 import DataTablePagination from "@/components/DataTablePagination";
+import { normalizePaginatedResponse } from "@/lib/paginated";
 
 const EMPTY_FORM = { employee_id: "" };
 const PAGE_SIZE = 10;
@@ -24,6 +25,7 @@ export default function Lecturers() {
 
   const [rows, setRows] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState(null);
@@ -36,22 +38,43 @@ export default function Lecturers() {
   const loadAssignments = useCallback(async () => {
     if (!dsId || !token) return;
     setLoading(true);
+    setFormError(null);
     try {
-      const res = await fetch(`/api/datasets/${dsId}/lecturers/`, {
+      const offset = (page - 1) * PAGE_SIZE;
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(offset),
+      });
+      if (search.trim()) params.set("q", search.trim());
+
+      const res = await fetch(`/api/datasets/${dsId}/lecturers/?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (res.ok) setRows(await res.json());
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? "Gagal memuat assignment");
+      }
+      const body = await res.json();
+      const normalized = normalizePaginatedResponse(body, PAGE_SIZE, offset);
+      setRows(normalized.items);
+      setTotalItems(normalized.total);
+    } catch (e) {
+      setFormError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [dsId, token]);
+  }, [dsId, token, page, search]);
 
   const loadEmployees = useCallback(async () => {
     if (!token || isLecturerRole) return;
     const res = await fetch("/api/employees/", {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.ok) setEmployees(await res.json());
+    if (res.ok) {
+      const body = await res.json();
+      const normalized = normalizePaginatedResponse(body, 1000, 0);
+      setEmployees(normalized.items);
+    }
   }, [token, isLecturerRole]);
 
   useEffect(() => {
@@ -113,20 +136,14 @@ export default function Lecturers() {
     loadAssignments();
   };
 
-  const filtered = rows.filter((r) =>
-    [r.code, r.employee_code, r.name, r.email]
-      .some((v) => (v ?? "").toLowerCase().includes(search.toLowerCase()))
-  );
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
   useEffect(() => {
     setPage(1);
   }, [search, dsId]);
 
   useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
     if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
+  }, [page, totalItems]);
 
   if (!dsId) {
     return (
@@ -175,14 +192,14 @@ export default function Lecturers() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 && (
+              {totalItems === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                     {search ? "Tidak ada hasil pencarian." : "Belum ada assignment karyawan."}
                   </TableCell>
                 </TableRow>
               )}
-              {paginated.map((r) => (
+              {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-mono font-medium">{r.code}</TableCell>
                   <TableCell className="font-mono">{r.employee_code}</TableCell>
@@ -203,7 +220,7 @@ export default function Lecturers() {
           <DataTablePagination
             page={page}
             setPage={setPage}
-            totalItems={filtered.length}
+            totalItems={totalItems}
             pageSize={PAGE_SIZE}
             itemLabel="assignment"
           />

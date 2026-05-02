@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
 
 from app import models, schemas
@@ -84,16 +85,38 @@ def list_my_datasets(
     )
 
 
-@router.get("/", response_model=list[schemas.DatasetRead])
+@router.get("/", response_model=list[schemas.DatasetRead] | schemas.PaginatedDatasetRead)
 def list_datasets(
     current_user: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     db: Session = Depends(get_db),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    q: str | None = Query(default=None),
 ):
-    return (
-        db.query(models.Dataset)
-        .filter(models.Dataset.user_id == current_user.id, models.Dataset.deleted_at.is_(None))
-        .all()
+    query = db.query(models.Dataset).filter(
+        models.Dataset.user_id == current_user.id,
+        models.Dataset.deleted_at.is_(None),
     )
+
+    if q:
+        keyword = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                models.Dataset.code.ilike(keyword),
+                models.Dataset.name.ilike(keyword),
+                models.Dataset.description.ilike(keyword),
+                cast(models.Dataset.visibility, String).ilike(keyword),
+            )
+        )
+
+    query = query.order_by(models.Dataset.updated_at.desc())
+
+    if limit is None:
+        return query.all()
+
+    total = query.count()
+    items = query.offset(offset).limit(limit).all()
+    return {"items": items, "total": total, "limit": limit, "offset": offset}
 
 
 @router.get("/public", response_model=list[schemas.DatasetRead])
