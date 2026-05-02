@@ -1,134 +1,92 @@
-import { Link, useLocation } from "react-router-dom";
-import {
-  Database,
-  Building2,
-  GraduationCap,
-  BookOpen,
-  Clock,
-  LogOut,
-  LogIn,
-  UserPlus,
-  CalendarDays,
-  Menu,
-  X,
-  User,
-} from "lucide-react";
-import { useState } from "react";
+import { useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Database, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
+import { useDataset } from "@/context/DatasetContext";
+import ModeToggle from "@/components/ModeToggle";
 
-const masterDataLinks = [
-  { to: "/datasets", label: "Datasets", icon: Database },
-  { to: "/rooms", label: "Ruangan", icon: Building2 },
-  { to: "/lecturers", label: "Dosen", icon: GraduationCap },
-  { to: "/courses", label: "Mata Kuliah", icon: BookOpen },
-  { to: "/time-slots", label: "Slot Waktu", icon: Clock },
-];
+const DATASET_PAGES = ["rooms", "lecturers", "courses", "time-slots", "classes"];
 
-const guestLinks = [
-  { to: "/login", label: "Login", icon: LogIn },
-  { to: "/register", label: "Daftar", icon: UserPlus },
-];
+function resolvePathForDataset(pathname, datasetId) {
+  const segments = pathname.split("/").filter(Boolean);
+  const first = segments[0];
+  const firstAsNumber = Number(first);
+  const hasDatasetPrefix = Number.isInteger(firstAsNumber);
+
+  const page = hasDatasetPrefix ? segments[1] : segments[0];
+  if (page && DATASET_PAGES.includes(page)) {
+    return `/${datasetId}/${page}`;
+  }
+
+  return `/${datasetId}/rooms`;
+}
 
 export default function Navbar() {
   const { pathname } = useLocation();
-  const { token, user, logout } = useAuth();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { datasets, selected, loading, selectDataset } = useDataset();
 
-  const navLinks = token ? masterDataLinks : guestLinks;
+  useEffect(() => {
+    const segments = pathname.split("/").filter(Boolean);
+    const maybeDatasetId = Number(segments[0]);
+    if (!Number.isInteger(maybeDatasetId)) return;
+    const found = datasets.find((d) => d.id === maybeDatasetId);
+    if (found && found.id !== selected?.id) {
+      selectDataset(found);
+    }
+  }, [pathname, datasets, selected?.id, selectDataset]);
+
+  const handleDatasetChange = (value) => {
+    const nextId = Number(value);
+    const next = datasets.find((d) => d.id === nextId);
+    if (!next) return;
+
+    selectDataset(next);
+    navigate(resolvePathForDataset(pathname, next.id));
+  };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        {/* Brand */}
-        <Link to={token ? "/datasets" : "/"} className="flex items-center gap-2 font-semibold text-lg shrink-0">
-          <CalendarDays className="h-5 w-5 text-primary" />
-          <span>TIMETABLE TOOL</span>
-        </Link>
-
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-1">
-          {navLinks.map(({ to, label, icon: Icon }) => (
-            <Button
-              key={to}
-              variant={pathname === to ? "secondary" : "ghost"}
-              asChild
-              size="sm"
-            >
-              <Link to={to} className="flex items-center gap-2">
-                <Icon className="h-4 w-4" />
-                {label}
-              </Link>
-            </Button>
-          ))}
-        </nav>
-
-        {/* Desktop right: user info + logout OR empty */}
-        {token && (
-          <div className="hidden md:flex items-center gap-2">
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <User className="h-4 w-4" />
-              <span>{user?.name ?? "..."}</span>
-            </div>
-            <Separator orientation="vertical" className="h-5" />
-            <Button variant="ghost" size="sm" onClick={logout} className="text-destructive hover:text-destructive">
-              <LogOut className="h-4 w-4 mr-1" />
-              Keluar
-            </Button>
-          </div>
-        )}
-
-        {/* Mobile toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="md:hidden"
-          onClick={() => setMobileOpen((v) => !v)}
+    <header className="hidden md:flex sticky top-0 z-30 h-14 items-center justify-between border-b bg-background/95 backdrop-blur px-4">
+      <div className="flex items-center gap-3 min-w-0">
+        <Database className="h-4 w-4 text-primary shrink-0" />
+        <Select
+          value={selected?.id ? String(selected.id) : undefined}
+          onValueChange={handleDatasetChange}
         >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
+          <SelectTrigger className="w-[280px]" id="dataset-switcher">
+            <SelectValue placeholder={loading ? "Memuat dataset..." : "Pilih dataset"} />
+          </SelectTrigger>
+          <SelectPopup>
+            {datasets.map((ds) => (
+              <SelectItem key={ds.id} value={String(ds.id)}>
+                {ds.name}
+              </SelectItem>
+            ))}
+          </SelectPopup>
+        </Select>
       </div>
 
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <>
-          <Separator />
-          <nav className="flex flex-col gap-1 px-4 py-2 md:hidden">
-            {navLinks.map(({ to, label, icon: Icon }) => (
-              <Button
-                key={to}
-                variant={pathname === to ? "secondary" : "ghost"}
-                asChild
-                className="justify-start"
-                onClick={() => setMobileOpen(false)}
-              >
-                <Link to={to} className="flex items-center gap-2">
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </Link>
-              </Button>
-            ))}
-            {token && (
-              <>
-                <Separator className="my-1" />
-                <div className="flex items-center gap-2 px-3 py-1 text-sm text-muted-foreground">
-                  <User className="h-4 w-4" />
-                  <span>{user?.name ?? "..."}</span>
-                </div>
-                <Button
-                  variant="ghost"
-                  className="justify-start text-destructive hover:text-destructive"
-                  onClick={() => { setMobileOpen(false); logout(); }}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Keluar
-                </Button>
-              </>
-            )}
-          </nav>
-        </>
-      )}
+      <div className="flex items-center gap-2 shrink-0">
+        <ModeToggle width_full={false} />
+        <Separator orientation="vertical" className="h-5" />
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground max-w-[220px]">
+          <User className="h-4 w-4 shrink-0" />
+          <span className="truncate">{user?.name ?? "..."}</span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={logout}
+          className="text-destructive hover:text-destructive"
+        >
+          <LogOut className="h-4 w-4 mr-1" />
+          Keluar
+        </Button>
+      </div>
     </header>
   );
 }
