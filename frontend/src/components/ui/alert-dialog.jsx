@@ -29,19 +29,36 @@ function AlertDialogOverlay({ className, ...props }) {
   );
 }
 
-function AlertDialogContent({ className, ...props }) {
+const contentSizeClass = {
+  sm: "sm:max-w-sm",
+  md: "sm:max-w-md",
+  lg: "sm:max-w-lg",
+};
+
+function AlertDialogContent({ className, size = "md", ...props }) {
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Popup
         data-slot="alert-dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          contentSizeClass[size] ?? contentSizeClass.md,
           className
         )}
         {...props}
       />
     </AlertDialogPortal>
+  );
+}
+
+function AlertDialogMedia({ className, ...props }) {
+  return (
+    <div
+      data-slot="alert-dialog-media"
+      className={cn("flex h-10 w-10 items-center justify-center rounded-full", className)}
+      {...props}
+    />
   );
 }
 
@@ -79,21 +96,21 @@ function AlertDialogDescription({ className, ...props }) {
   );
 }
 
-function AlertDialogAction({ className, ...props }) {
+function AlertDialogAction({ className, variant = "destructive", ...props }) {
   return (
     <AlertDialogPrimitive.Close
       data-slot="alert-dialog-action"
-      render={<Button variant="destructive" className={className} />}
+      render={<Button variant={variant} className={className} />}
       {...props}
     />
   );
 }
 
-function AlertDialogCancel({ className, ...props }) {
+function AlertDialogCancel({ className, variant = "outline", ...props }) {
   return (
     <AlertDialogPrimitive.Close
       data-slot="alert-dialog-cancel"
-      render={<Button variant="outline" className={className} />}
+      render={<Button variant={variant} className={className} />}
       {...props}
     />
   );
@@ -107,6 +124,7 @@ export {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogOverlay,
   AlertDialogPortal,
   AlertDialogTitle,

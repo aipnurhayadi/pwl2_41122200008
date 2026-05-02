@@ -81,8 +81,8 @@ function NavLinks({ collapsed, closeMenu }) {
         </p>
       )}
       {masterLinks.map(({ path, label, icon: Icon }) => {
-        const to = activeId ? `/${activeId}/${path}` : `/${path}`;
-        const isActive = pathname === to || pathname.endsWith(`/${path}`);
+        const to = activeId ? `/dataset/${activeId}/${path}` : "/datasets";
+        const isActive = pathname === to || pathname.startsWith(`/dataset/`) && pathname.endsWith(`/${path}`);
         return (
           <Button
             key={path}

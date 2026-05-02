@@ -20,6 +20,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { normalizePaginatedResponse } from "@/lib/paginated";
@@ -27,6 +28,12 @@ import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { toast } from "sonner";
 
 const ROOM_TYPES = ["TEORI", "LABORATORIUM", "AULA", "SEMINAR"];
+const ROOM_TYPE_LABELS = {
+  TEORI: "Teori",
+  LABORATORIUM: "Laboratorium",
+  AULA: "Aula",
+  SEMINAR: "Seminar",
+};
 const EMPTY_FORM = { building_code: "", floor: "", room_number: "", capacity: "", room_type: "" };
 const PAGE_SIZE = 10;
 
@@ -281,11 +288,13 @@ export default function Rooms() {
                 onValueChange={(v) => setForm((f) => ({ ...f, room_type: v }))}
               >
                 <SelectTrigger id="r-type">
-                  <SelectValue placeholder="— Pilih Tipe —" />
+                  <SelectValue placeholder="— Pilih Tipe —">
+                    {form.room_type ? ROOM_TYPE_LABELS[form.room_type] ?? form.room_type : null}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectPopup>
                   {ROOM_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                    <SelectItem key={t} value={t}>{ROOM_TYPE_LABELS[t] ?? t}</SelectItem>
                   ))}
                 </SelectPopup>
               </Select>
@@ -301,16 +310,19 @@ export default function Rooms() {
       </Dialog>
 
       <AlertDialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent size="sm">
           <AlertDialogHeader>
+            <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive">
+              <Trash2 className="h-5 w-5" />
+            </AlertDialogMedia>
             <AlertDialogTitle>Hapus Ruangan</AlertDialogTitle>
             <AlertDialogDescription>
               Yakin ingin menghapus ruangan <span className="font-medium text-foreground">{delTarget?.building_name}</span>? Tindakan ini tidak dapat dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={saving}>
+            <AlertDialogCancel variant="outline">Batal</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>

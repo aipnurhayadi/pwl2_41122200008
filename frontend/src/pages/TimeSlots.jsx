@@ -17,6 +17,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
@@ -191,6 +192,7 @@ export default function TimeSlots() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Kode</TableHead>
                 <TableHead>Hari</TableHead>
                 <TableHead>Jam Mulai</TableHead>
                 <TableHead>Jam Selesai</TableHead>
@@ -200,13 +202,14 @@ export default function TimeSlots() {
             <TableBody>
               {totalItems === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                     {search ? "Tidak ada hasil pencarian." : "Belum ada data slot waktu."}
                   </TableCell>
                 </TableRow>
               )}
               {rows.map((r) => (
                 <TableRow key={r.id}>
+                  <TableCell className="font-mono font-medium">{r.code}</TableCell>
                   <TableCell className="font-medium">{DAY_LABELS[r.day] ?? r.day}</TableCell>
                   <TableCell className="font-mono">{fmtTime(r.start_time)}</TableCell>
                   <TableCell className="font-mono">{fmtTime(r.end_time)}</TableCell>
@@ -243,7 +246,9 @@ export default function TimeSlots() {
                 onValueChange={(v) => setForm((f) => ({ ...f, day: v }))}
               >
                 <SelectTrigger id="s-day">
-                  <SelectValue />
+                  <SelectValue placeholder="— Pilih Hari —">
+                    {DAY_LABELS[form.day] ?? form.day}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectPopup>
                   {DAYS.map(([v, l]) => (
@@ -273,8 +278,11 @@ export default function TimeSlots() {
       </Dialog>
 
       <AlertDialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent size="sm">
           <AlertDialogHeader>
+            <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive">
+              <Trash2 className="h-5 w-5" />
+            </AlertDialogMedia>
             <AlertDialogTitle>Hapus Slot Waktu</AlertDialogTitle>
             <AlertDialogDescription>
               Yakin ingin menghapus slot{" "}
@@ -284,8 +292,8 @@ export default function TimeSlots() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={saving}>
+            <AlertDialogCancel variant="outline">Batal</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>

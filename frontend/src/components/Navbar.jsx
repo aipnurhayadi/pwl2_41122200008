@@ -17,16 +17,13 @@ const DATASET_PAGES = ["rooms", "lecturers", "courses", "time-slots", "classes"]
 
 function resolvePathForDataset(pathname, datasetId) {
   const segments = pathname.split("/").filter(Boolean);
-  const first = segments[0];
-  const firstAsNumber = Number(first);
-  const hasDatasetPrefix = Number.isInteger(firstAsNumber);
-
-  const page = hasDatasetPrefix ? segments[1] : segments[0];
+  const hasDatasetPrefix = segments[0] === "dataset";
+  const page = hasDatasetPrefix ? segments[2] : segments[0];
   if (page && DATASET_PAGES.includes(page)) {
-    return `/${datasetId}/${page}`;
+    return `/dataset/${datasetId}/${page}`;
   }
 
-  return `/${datasetId}/rooms`;
+  return `/dataset/${datasetId}/rooms`;
 }
 
 export default function Navbar() {
@@ -34,10 +31,12 @@ export default function Navbar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { datasets, selected, loading, selectDataset } = useDataset();
+  const showDatasetSwitcher = pathname.startsWith("/dataset/");
 
   useEffect(() => {
     const segments = pathname.split("/").filter(Boolean);
-    const maybeDatasetId = Number(segments[0]);
+    if (segments[0] !== "dataset") return;
+    const maybeDatasetId = Number(segments[1]);
     if (!Number.isInteger(maybeDatasetId)) return;
     const found = datasets.find((d) => d.id === maybeDatasetId);
     if (found && found.id !== selected?.id) {
@@ -55,25 +54,27 @@ export default function Navbar() {
   return (
     <header className="hidden md:flex sticky top-0 z-30 h-14 items-center justify-between border-b bg-background/95 backdrop-blur px-4">
       <div className="flex items-center gap-3 min-w-0">
-        <DropdownMenu>
-          <DropdownMenuTrigger className="w-[180px]" id="dataset-switcher" disabled={loading || datasets.length === 0}>
-            <span className="truncate text-left">
-              {loading ? "Memuat dataset..." : (selected?.name ?? "Pilih dataset")}
-            </span>
-            <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            {datasets.map((ds) => (
-              <DropdownMenuItem
-                key={ds.id}
-                selected={selected?.id === ds.id}
-                onClick={() => handleDatasetSelect(ds)}
-              >
-                {ds.name}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {showDatasetSwitcher && (
+          <DropdownMenu>
+            <DropdownMenuTrigger className="w-[180px]" id="dataset-switcher" disabled={loading || datasets.length === 0}>
+              <span className="truncate text-left">
+                {loading ? "Memuat dataset..." : (selected?.name ?? "Pilih dataset")}
+              </span>
+              <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {datasets.map((ds) => (
+                <DropdownMenuItem
+                  key={ds.id}
+                  selected={selected?.id === ds.id}
+                  onClick={() => handleDatasetSelect(ds)}
+                >
+                  {ds.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       <div className="flex items-center gap-2 shrink-0">

@@ -73,7 +73,7 @@ const MODAL_DEFS = {
   rooms: { title: "Ruangan", columns: ["Kode", "Gedung", "Tipe"] },
   lecturers: { title: "Dosen", columns: ["Kode", "Kode Pegawai", "Nama"] },
   courses: { title: "Mata Kuliah", columns: ["Kode", "Nama", "SKS"] },
-  time_slots: { title: "Slot Waktu", columns: ["Hari", "Mulai", "Selesai"] },
+  time_slots: { title: "Slot Waktu", columns: ["Kode", "Hari", "Mulai", "Selesai"] },
   classes: { title: "Kelas", columns: ["Kode", "Nama"] },
 };
 
@@ -92,6 +92,7 @@ function getModalRows(key, tree) {
       return tree.courses.map((r) => [r.code, r.name, r.credits]);
     case "time_slots":
       return tree.time_slots.map((r) => [
+        r.code,
         DAY_LABELS[r.day] ?? r.day,
         fmtTime(r.start_time),
         fmtTime(r.end_time),
