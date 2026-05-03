@@ -73,6 +73,7 @@ export default function Datasets() {
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [page, setPage] = useState(1);
@@ -184,6 +185,7 @@ export default function Datasets() {
 
     toast.success("Dataset berhasil dihapus");
     setDeleteTarget(null);
+    setDeleteConfirmed(false);
     await refetch();
     await load();
   };
@@ -335,20 +337,35 @@ export default function Datasets() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog open={deleteTarget !== null} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); setDeleteConfirmed(false); } }}>
         <AlertDialogContent size="sm">
           <AlertDialogHeader>
             <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive">
               <Trash2 className="h-5 w-5" />
             </AlertDialogMedia>
             <AlertDialogTitle>Hapus Dataset</AlertDialogTitle>
-            <AlertDialogDescription>
-              Yakin ingin menghapus dataset <span className="font-medium text-foreground">{deleteTarget?.name}</span>? Tindakan ini tidak dapat dibatalkan.
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  Kamu akan menghapus dataset{" "}
+                  <span className="font-medium text-foreground">{deleteTarget?.name}</span>.{" "}
+                  <strong className="text-destructive">Semua data di dalamnya akan terhapus secara permanen dan tidak dapat dikembalikan.</strong>
+                </p>
+                <label className="flex items-center text-left gap-4 cursor-pointer select-none mt-4 border-t pt-4">
+                  <input
+                    type="checkbox"
+                    checked={deleteConfirmed}
+                    onChange={(e) => setDeleteConfirmed(e.target.checked)}
+                    className="mt-0.5 accent-destructive"
+                  />
+                  <span>Saya mengerti bahwa tindakan ini bersifat permanen dan tidak dapat dikembalikan.</span>
+                </label>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel variant="outline">Batal</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={saving}>
+            <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={saving || !deleteConfirmed}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>

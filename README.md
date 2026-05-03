@@ -72,63 +72,27 @@ python -m alembic current
 
 ## 6. Seed Data
 
-Semua script seed sudah dipindahkan ke folder `backend/seeds` agar folder root backend tetap rapi.
-
-Sekarang proses seed sudah menjadi satu kesatuan, jadi tidak perlu lagi input `dataset_id` manual.
-
-### 6.0 Seed Semua Data Sekaligus (Disarankan)
+Proses seed sekarang memakai satu command utama saja:
 
 ```powershell
 python -m seeds.seed_all
 ```
 
-Jika ingin replace data master/timeslot yang sudah ada:
+Untuk reset total data resource dataset (hard overwrite) lalu isi ulang:
 
 ```powershell
 python -m seeds.seed_all --overwrite
 ```
 
-### 6.1 Seed User dan Dataset
-
-Script ini membuat 1 user dan 1 dataset (idempotent, aman dijalankan ulang).
-
-```powershell
-python -m seeds.seed_user_dataset
-```
-
-Default credential dari script:
+Default credential dari seed:
 
 - Email: admin@example.com
 - Password: Admin123!
 
-Anda juga bisa override nilai default:
+Anda tetap bisa override parameter user/dataset:
 
 ```powershell
-python -m seeds.seed_user_dataset --email admin@example.com --password Admin123! --name Admin --dataset "Dataset Seed Default"
-```
-
-### 6.2 Seed Dosen dan Mata Kuliah
-
-```powershell
-python -m seeds.seed_lecturers_courses
-```
-
-Untuk replace data dosen/mata kuliah yang sudah ada:
-
-```powershell
-python -m seeds.seed_lecturers_courses --overwrite
-```
-
-### 6.3 Seed Time Slots
-
-```powershell
-python -m seeds.seed_time_slots
-```
-
-Untuk replace data time slots yang sudah ada:
-
-```powershell
-python -m seeds.seed_time_slots --overwrite
+python -m seeds.seed_all --email admin@example.com --password Admin123! --name Admin --dataset "Dataset Seed Default" --dataset-description "Auto-created for seed scripts"
 ```
 
 ## 7. Menjalankan Backend
