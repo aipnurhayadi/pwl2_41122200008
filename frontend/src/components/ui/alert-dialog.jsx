@@ -9,11 +9,15 @@ function AlertDialog(props) {
 }
 
 function AlertDialogTrigger(props) {
-  return <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />;
+  return (
+    <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props} />
+  );
 }
 
 function AlertDialogPortal(props) {
-  return <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} />;
+  return (
+    <AlertDialogPrimitive.Portal data-slot="alert-dialog-portal" {...props} />
+  );
 }
 
 function AlertDialogOverlay({ className, ...props }) {
@@ -22,7 +26,7 @@ function AlertDialogOverlay({ className, ...props }) {
       data-slot="alert-dialog-overlay"
       className={cn(
         "fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
-        className
+        className,
       )}
       {...props}
     />
@@ -44,7 +48,7 @@ function AlertDialogContent({ className, size = "md", ...props }) {
         className={cn(
           "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           contentSizeClass[size] ?? contentSizeClass.md,
-          className
+          className,
         )}
         {...props}
       />
@@ -56,21 +60,33 @@ function AlertDialogMedia({ className, ...props }) {
   return (
     <div
       data-slot="alert-dialog-media"
-      className={cn("flex h-10 w-10 items-center justify-center rounded-full", className)}
+      className={cn("h-10 w-10 items-center justify-center flex rounded-md mb-4", className)}
       {...props}
     />
   );
 }
 
 function AlertDialogHeader({ className, ...props }) {
-  return <div data-slot="alert-dialog-header" className={cn("flex flex-col gap-2", className)} {...props} />;
+  return (
+    <div
+      data-slot="alert-dialog-header"
+      className={cn(
+        "flex flex-col items-center justify-center gap-2 text-center",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 function AlertDialogFooter({ className, ...props }) {
   return (
     <div
       data-slot="alert-dialog-footer"
-      className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}
+      className={cn(
+        "flex flex-row gap-2 pt-4 [&>*]:flex-1",
+        className,
+      )}
       {...props}
     />
   );
@@ -80,7 +96,10 @@ function AlertDialogTitle({ className, ...props }) {
   return (
     <AlertDialogPrimitive.Title
       data-slot="alert-dialog-title"
-      className={cn("font-heading text-base leading-none font-semibold", className)}
+      className={cn(
+        "font-heading text-base leading-none font-semibold",
+        className,
+      )}
       {...props}
     />
   );

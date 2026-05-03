@@ -260,8 +260,16 @@ class Criterion(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    bwm_responses_as_best = relationship("BwmResponse", foreign_keys="BwmResponse.best_criteria_id")
-    bwm_responses_as_worst = relationship("BwmResponse", foreign_keys="BwmResponse.worst_criteria_id")
+    bwm_responses_as_best = relationship(
+        "BwmResponse",
+        foreign_keys="BwmResponse.best_criteria_id",
+        back_populates="best_criterion",
+    )
+    bwm_responses_as_worst = relationship(
+        "BwmResponse",
+        foreign_keys="BwmResponse.worst_criteria_id",
+        back_populates="worst_criterion",
+    )
     bwm_best_to_others = relationship("BwmBestToOther", back_populates="criterion")
     bwm_others_to_worst = relationship("BwmOtherToWorst", back_populates="criterion")
     bwm_weights = relationship("BwmWeight", back_populates="criterion")
@@ -287,8 +295,16 @@ class BwmResponse(Base):
 
     dataset = relationship("Dataset", back_populates="bwm_responses")
     lecturer = relationship("Lecturer", back_populates="bwm_responses")
-    best_criterion = relationship("Criterion", foreign_keys=[best_criteria_id])
-    worst_criterion = relationship("Criterion", foreign_keys=[worst_criteria_id])
+    best_criterion = relationship(
+        "Criterion",
+        foreign_keys=[best_criteria_id],
+        back_populates="bwm_responses_as_best",
+    )
+    worst_criterion = relationship(
+        "Criterion",
+        foreign_keys=[worst_criteria_id],
+        back_populates="bwm_responses_as_worst",
+    )
     best_to_others = relationship("BwmBestToOther", back_populates="response", cascade="all, delete-orphan")
     others_to_worst = relationship("BwmOtherToWorst", back_populates="response", cascade="all, delete-orphan")
     weights = relationship("BwmWeight", back_populates="response", cascade="all, delete-orphan")
