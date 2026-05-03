@@ -38,7 +38,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import EmployeeLayout from "@/components/EmployeeLayout";
+import EmployeeAppLayout from "@/components/layouts/EmployeeAppLayout";
 
 const PAGE_SIZE = 8;
 
@@ -446,7 +446,7 @@ export default function DatasetDetail() {
 
   if (loading) {
     return (
-      <EmployeeLayout
+      <EmployeeAppLayout
         title="Detail Dataset"
         icon={Database}
         navContent={navBackLink}
@@ -454,27 +454,27 @@ export default function DatasetDetail() {
         <div className="flex items-center justify-center py-20 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
-      </EmployeeLayout>
+      </EmployeeAppLayout>
     );
   }
 
   if (error) {
     return (
-      <EmployeeLayout
+      <EmployeeAppLayout
         title="Detail Dataset"
         icon={Database}
         navContent={navBackLink}
         mainClassName="space-y-4"
       >
         <p className="text-destructive">{error}</p>
-      </EmployeeLayout>
+      </EmployeeAppLayout>
     );
   }
 
   if (!tree) return null;
 
   return (
-    <EmployeeLayout
+    <EmployeeAppLayout
       title="Detail Dataset"
       icon={Database}
       navContent={navBackLink}
@@ -847,6 +847,6 @@ export default function DatasetDetail() {
           </div>
         </DialogContent>
       </Dialog>
-    </EmployeeLayout>
+    </EmployeeAppLayout>
   );
 }

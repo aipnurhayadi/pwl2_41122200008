@@ -1,10 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { ThemeProvider } from "@/context/ThemeContext";
-import { DatasetProvider } from "@/context/DatasetContext";
-import Sidebar from "@/components/Sidebar";
-import Navbar from "@/components/Navbar";
-import GuestHeader from "@/components/GuestHeader";
+import PublicLayout from "@/components/layouts/PublicLayout";
+import AdminAppLayout from "@/components/layouts/AdminAppLayout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Home from "@/pages/Home";
 import AdminHome from "@/pages/AdminHome";
@@ -40,43 +38,34 @@ function AppRoutes() {
     }
 
     return (
-      <DatasetProvider>
-        <div className="flex h-screen bg-background text-foreground overflow-hidden">
-          <Sidebar />
-          <div className="flex flex-1 min-w-0 flex-col">
-            <Navbar />
-            <main className="flex-1 overflow-y-auto">
-              <Routes>
-                <Route path="/" element={<Navigate to="/home" replace />} />
-                <Route path="/login" element={<Navigate to="/home" replace />} />
-                <Route path="/register" element={<Navigate to="/home" replace />} />
-                <Route path="/home" element={<ProtectedRoute><AdminHome /></ProtectedRoute>} />
-                <Route path="/datasets" element={<ProtectedRoute><Datasets /></ProtectedRoute>} />
-                <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
-                <Route path="/my-datasets" element={<Navigate to="/home" replace />} />
-                <Route path="/datasets/:datasetId" element={<ProtectedRoute><DatasetDetail /></ProtectedRoute>} />
-                <Route path="/dataset/:datasetId/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
-                <Route path="/dataset/:datasetId/lecturers" element={<ProtectedRoute><Lecturers /></ProtectedRoute>} />
-                <Route path="/dataset/:datasetId/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
-                <Route path="/dataset/:datasetId/time-slots" element={<ProtectedRoute><TimeSlots /></ProtectedRoute>} />
-                <Route path="/dataset/:datasetId/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
-                <Route path="/rooms" element={<Navigate to="/home" replace />} />
-                <Route path="/lecturers" element={<Navigate to="/home" replace />} />
-                <Route path="/courses" element={<Navigate to="/home" replace />} />
-                <Route path="/time-slots" element={<Navigate to="/home" replace />} />
-                <Route path="/classes" element={<Navigate to="/home" replace />} />
-                <Route path="*" element={<Navigate to="/home" replace />} />
-              </Routes>
-            </main>
-          </div>
-        </div>
-      </DatasetProvider>
+      <AdminAppLayout>
+        <Routes>
+          <Route path="/" element={<Navigate to="/home" replace />} />
+          <Route path="/login" element={<Navigate to="/home" replace />} />
+          <Route path="/register" element={<Navigate to="/home" replace />} />
+          <Route path="/home" element={<ProtectedRoute><AdminHome /></ProtectedRoute>} />
+          <Route path="/datasets" element={<ProtectedRoute><Datasets /></ProtectedRoute>} />
+          <Route path="/employees" element={<ProtectedRoute><Employees /></ProtectedRoute>} />
+          <Route path="/my-datasets" element={<Navigate to="/home" replace />} />
+          <Route path="/datasets/:datasetId" element={<ProtectedRoute><DatasetDetail /></ProtectedRoute>} />
+          <Route path="/dataset/:datasetId/rooms" element={<ProtectedRoute><Rooms /></ProtectedRoute>} />
+          <Route path="/dataset/:datasetId/lecturers" element={<ProtectedRoute><Lecturers /></ProtectedRoute>} />
+          <Route path="/dataset/:datasetId/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
+          <Route path="/dataset/:datasetId/time-slots" element={<ProtectedRoute><TimeSlots /></ProtectedRoute>} />
+          <Route path="/dataset/:datasetId/classes" element={<ProtectedRoute><Classes /></ProtectedRoute>} />
+          <Route path="/rooms" element={<Navigate to="/home" replace />} />
+          <Route path="/lecturers" element={<Navigate to="/home" replace />} />
+          <Route path="/courses" element={<Navigate to="/home" replace />} />
+          <Route path="/time-slots" element={<Navigate to="/home" replace />} />
+          <Route path="/classes" element={<Navigate to="/home" replace />} />
+          <Route path="*" element={<Navigate to="/home" replace />} />
+        </Routes>
+      </AdminAppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <GuestHeader />
+    <PublicLayout>
       <div className="flex-1">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -86,7 +75,7 @@ function AppRoutes() {
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>
-    </div>
+    </PublicLayout>
   );
 }
 
