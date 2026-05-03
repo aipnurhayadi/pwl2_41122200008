@@ -14,7 +14,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import EmployeeLayout from "@/components/EmployeeLayout";
+import EmployeeAppLayout from "@/components/layouts/EmployeeAppLayout";
 
 const PAGE_SIZE = 10;
 
@@ -50,7 +50,7 @@ export default function MyDatasets() {
   }, [page, totalPages]);
 
   return (
-    <EmployeeLayout title="Dataset Saya" icon={Database} maxWidth="max-w-4xl">
+    <EmployeeAppLayout title="Dataset Saya" icon={Database} maxWidth="max-w-4xl">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Selamat datang, {user?.name}</h1>
         <p className="text-muted-foreground mt-1">
@@ -122,6 +122,6 @@ export default function MyDatasets() {
           />
         </div>
       )}
-    </EmployeeLayout>
+    </EmployeeAppLayout>
   );
 }

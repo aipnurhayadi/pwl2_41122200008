@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -7,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app import models, schemas
 from app.database import get_db
-from app.dependencies import get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
+from app.dependencies import get_current_user, get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
 
 router = APIRouter(prefix="/api/datasets/{dataset_id}/rooms", tags=["rooms"])
 
@@ -15,7 +13,6 @@ router = APIRouter(prefix="/api/datasets/{dataset_id}/rooms", tags=["rooms"])
 def _active_room_query(dataset_id: int, db: Session):
     return db.query(models.Room).filter(
         models.Room.dataset_id == dataset_id,
-        models.Room.deleted_at.is_(None),
     )
 
 
@@ -56,13 +53,14 @@ def list_rooms(
 def create_room(
     payload: schemas.RoomCreate,
     _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
+    current_user: models.User = Depends(get_current_user),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
     data["building_name"] = _compute_code(data["building_code"], data["floor"], data["room_number"])
     data["code"] = _compute_code(data["building_code"], data["floor"], data["room_number"])
-    room = models.Room(dataset_id=dataset.id, **data)
+    room = models.Room(dataset_id=dataset.id, created_by=current_user.id, **data)
     db.add(room)
     try:
         db.commit()
@@ -120,25 +118,5 @@ def delete_room(
     room = _active_room_query(dataset.id, db).filter(models.Room.id == room_id).first()
     if not room:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
-    room.deleted_at = datetime.now(timezone.utc)
+    db.delete(room)
     db.commit()
-
-
-@router.patch("/{room_id}/restore", response_model=schemas.RoomRead)
-def restore_room(
-    room_id: int,
-    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
-    dataset: models.Dataset = Depends(get_dataset_for_user),
-    db: Session = Depends(get_db),
-):
-    room = (
-        db.query(models.Room)
-        .filter(models.Room.id == room_id, models.Room.dataset_id == dataset.id, models.Room.deleted_at.isnot(None))
-        .first()
-    )
-    if not room:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deleted room not found")
-    room.deleted_at = None
-    db.commit()
-    db.refresh(room)
-    return room

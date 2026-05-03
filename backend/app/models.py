@@ -2,29 +2,11 @@ import enum
 
 from sqlalchemy import (
     Boolean, CheckConstraint, Column, DateTime, Enum, Float, ForeignKey,
-    Integer, String, Table, Text, Time, UniqueConstraint, func,
+    Integer, String, Text, Time, UniqueConstraint, func,
 )
 from sqlalchemy.orm import relationship
 
 from app.database import Base
-
-
-# ---------------------------------------------------------------------------
-# Soft-delete mixin
-# ---------------------------------------------------------------------------
-class SoftDeleteMixin:
-    deleted_at = Column(DateTime, nullable=True, index=True)
-
-
-# ---------------------------------------------------------------------------
-# Many-to-many join table: lecturers ↔ courses (within a dataset)
-# ---------------------------------------------------------------------------
-lecturer_courses = Table(
-    "lecturer_courses",
-    Base.metadata,
-    Column("lecturer_id", Integer, ForeignKey("lecturers.id", ondelete="CASCADE"), primary_key=True),
-    Column("course_id", Integer, ForeignKey("courses.id", ondelete="CASCADE"), primary_key=True),
-)
 
 
 # ---------------------------------------------------------------------------
@@ -48,13 +30,13 @@ class User(Base):
     email = Column(String(255), nullable=False, unique=True, index=True)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False, default=UserRoleEnum.ADMIN.value, server_default=UserRoleEnum.ADMIN.value, index=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    datasets = relationship("Dataset", back_populates="user", cascade="all, delete-orphan")
-    personal_access_tokens = relationship("PersonalAccessToken", back_populates="user", cascade="all, delete-orphan")
-    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
-    employee_profile = relationship("Employee", back_populates="user", uselist=False)
+    datasets = relationship("Dataset", back_populates="user", cascade="all, delete-orphan", foreign_keys="Dataset.user_id")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan", foreign_keys="RefreshToken.user_id")
+    employee_profile = relationship("Employee", back_populates="user", uselist=False, foreign_keys="Employee.user_id")
 
 
 class Employee(Base):
@@ -62,6 +44,7 @@ class Employee(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
     employee_code = Column(String(50), nullable=False, unique=True, index=True)
     name = Column(String(255), nullable=False)
     nidn = Column(String(20), nullable=True)
@@ -73,22 +56,8 @@ class Employee(Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    user = relationship("User", back_populates="employee_profile")
+    user = relationship("User", back_populates="employee_profile", foreign_keys=[user_id])
     lecturer_assignments = relationship("Lecturer", back_populates="employee", cascade="all, delete-orphan")
-
-
-class PersonalAccessToken(Base):
-    __tablename__ = "personal_access_tokens"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    name = Column(String(255), nullable=False)
-    token_hash = Column(String(64), nullable=False, unique=True, index=True)
-    last_used_at = Column(DateTime, nullable=True)
-    expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
-
-    user = relationship("User", back_populates="personal_access_tokens")
 
 
 class RefreshToken(Base):
@@ -96,22 +65,25 @@ class RefreshToken(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
     token_hash = Column(String(64), nullable=False, unique=True, index=True)
     expires_at = Column(DateTime, nullable=False)
     revoked = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    user = relationship("User", back_populates="refresh_tokens")
+    user = relationship("User", back_populates="refresh_tokens", foreign_keys=[user_id])
 
 
 # ---------------------------------------------------------------------------
 # Datasets
 # ---------------------------------------------------------------------------
-class Dataset(SoftDeleteMixin, Base):
+class Dataset(Base):
     __tablename__ = "datasets"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
     code = Column(String(50), nullable=False, unique=True, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -125,7 +97,7 @@ class Dataset(SoftDeleteMixin, Base):
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    user = relationship("User", back_populates="datasets")
+    user = relationship("User", back_populates="datasets", foreign_keys=[user_id])
     rooms = relationship("Room", back_populates="dataset", cascade="all, delete-orphan")
     lecturers = relationship("Lecturer", back_populates="dataset", cascade="all, delete-orphan")
     courses = relationship("Course", back_populates="dataset", cascade="all, delete-orphan")
@@ -167,11 +139,12 @@ class ConstraintTypeEnum(str, enum.Enum):
 # ---------------------------------------------------------------------------
 # Resources
 # ---------------------------------------------------------------------------
-class Room(SoftDeleteMixin, Base):
+class Room(Base):
     __tablename__ = "rooms"
 
     id = Column(Integer, primary_key=True, index=True)
     dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
     building_name = Column(String(100), nullable=False)
     building_code = Column(String(20), nullable=False)
     floor = Column(Integer, nullable=False)
@@ -189,19 +162,19 @@ class Room(SoftDeleteMixin, Base):
     )
 
 
-class Lecturer(SoftDeleteMixin, Base):
+class Lecturer(Base):
     __tablename__ = "lecturers"
 
     id = Column(Integer, primary_key=True, index=True)
     dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
     employee_id = Column(Integer, ForeignKey("employees.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
     code = Column(String(50), nullable=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     dataset = relationship("Dataset", back_populates="lecturers")
     employee = relationship("Employee", back_populates="lecturer_assignments")
-    courses = relationship("Course", secondary=lecturer_courses, back_populates="lecturers")
     bwm_responses = relationship("BwmResponse", back_populates="lecturer", cascade="all, delete-orphan")
 
     __table_args__ = (
@@ -210,11 +183,12 @@ class Lecturer(SoftDeleteMixin, Base):
     )
 
 
-class Course(SoftDeleteMixin, Base):
+class Course(Base):
     __tablename__ = "courses"
 
     id = Column(Integer, primary_key=True, index=True)
     dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
     name = Column(String(255), nullable=False)
     code = Column(String(50), nullable=False)
     credits = Column(Integer, nullable=False)
@@ -225,16 +199,16 @@ class Course(SoftDeleteMixin, Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
     dataset = relationship("Dataset", back_populates="courses")
-    lecturers = relationship("Lecturer", secondary=lecturer_courses, back_populates="courses")
 
     __table_args__ = (UniqueConstraint("dataset_id", "code", name="uq_course_dataset_code"),)
 
 
-class TimeSlot(SoftDeleteMixin, Base):
+class TimeSlot(Base):
     __tablename__ = "time_slots"
 
     id = Column(Integer, primary_key=True, index=True)
     dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
     code = Column(String(50), nullable=False)
     day = Column(Enum(DayEnum), nullable=False)
     start_time = Column(Time, nullable=False)
@@ -250,11 +224,12 @@ class TimeSlot(SoftDeleteMixin, Base):
 # ---------------------------------------------------------------------------
 # Classes (Kelas)
 # ---------------------------------------------------------------------------
-class Class(SoftDeleteMixin, Base):
+class Class(Base):
     __tablename__ = "classes"
 
     id = Column(Integer, primary_key=True, index=True)
     dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
     name = Column(String(255), nullable=False)
     code = Column(String(50), nullable=False)
     academic_year = Column(Integer, nullable=True)
@@ -277,6 +252,7 @@ class Criterion(Base):
     __tablename__ = "criteria"
 
     id = Column(Integer, primary_key=True, index=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
     type = Column(Enum(ConstraintTypeEnum), nullable=False, index=True)
     code = Column(String(20), nullable=False, unique=True, index=True)
     name = Column(String(100), nullable=False, unique=True, index=True)
@@ -300,8 +276,9 @@ class BwmResponse(Base):
     id = Column(Integer, primary_key=True, index=True)
     dataset_id = Column(Integer, ForeignKey("datasets.id", ondelete="CASCADE"), nullable=False, index=True)
     lecturer_id = Column(Integer, ForeignKey("lecturers.id", ondelete="CASCADE"), nullable=False, index=True)
-    best_criteria_id = Column(Integer, ForeignKey("criteria.id", ondelete="RESTRICT"), nullable=False)
-    worst_criteria_id = Column(Integer, ForeignKey("criteria.id", ondelete="RESTRICT"), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
+    best_criteria_id = Column(Integer, ForeignKey("criteria.id", ondelete="CASCADE"), nullable=False)
+    worst_criteria_id = Column(Integer, ForeignKey("criteria.id", ondelete="CASCADE"), nullable=False)
     scale_max = Column(Integer, nullable=False, default=9, server_default="9")
     ksi = Column(Float, nullable=True)
     consistency_ratio = Column(Float, nullable=True)
@@ -329,6 +306,8 @@ class BwmBestToOther(Base):
     id = Column(Integer, primary_key=True, index=True)
     response_id = Column(Integer, ForeignKey("bwm_responses.id", ondelete="CASCADE"), nullable=False, index=True)
     criterion_id = Column(Integer, ForeignKey("criteria.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
     value = Column(Integer, nullable=False)
 
     response = relationship("BwmResponse", back_populates="best_to_others")
@@ -346,6 +325,8 @@ class BwmOtherToWorst(Base):
     id = Column(Integer, primary_key=True, index=True)
     response_id = Column(Integer, ForeignKey("bwm_responses.id", ondelete="CASCADE"), nullable=False, index=True)
     criterion_id = Column(Integer, ForeignKey("criteria.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
     value = Column(Integer, nullable=False)
 
     response = relationship("BwmResponse", back_populates="others_to_worst")
@@ -363,6 +344,8 @@ class BwmWeight(Base):
     id = Column(Integer, primary_key=True, index=True)
     response_id = Column(Integer, ForeignKey("bwm_responses.id", ondelete="CASCADE"), nullable=False, index=True)
     criterion_id = Column(Integer, ForeignKey("criteria.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, server_default="1", index=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
     weight = Column(Float, nullable=False)
 
     response = relationship("BwmResponse", back_populates="weights")

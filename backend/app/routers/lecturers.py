@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -7,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.dependencies import get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
+from app.dependencies import get_current_user, get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
 
 router = APIRouter(prefix="/api/datasets/{dataset_id}/lecturers", tags=["lecturers"])
 
@@ -34,7 +32,6 @@ def _to_read(lecturer: models.Lecturer) -> schemas.LecturerRead:
         gender=employee.gender,
         created_at=lecturer.created_at,
         updated_at=lecturer.updated_at,
-        deleted_at=lecturer.deleted_at,
     )
 
 
@@ -44,7 +41,6 @@ def _get_active_lecturer(lecturer_id: int, dataset: models.Dataset, db: Session)
         .filter(
             models.Lecturer.id == lecturer_id,
             models.Lecturer.dataset_id == dataset.id,
-            models.Lecturer.deleted_at.is_(None),
         )
         .first()
     )
@@ -65,7 +61,7 @@ def list_lecturers(
         db.query(models.Lecturer)
         .join(models.Employee, models.Employee.id == models.Lecturer.employee_id)
         .outerjoin(models.User, models.User.id == models.Employee.user_id)
-        .filter(models.Lecturer.dataset_id == dataset.id, models.Lecturer.deleted_at.is_(None))
+        .filter(models.Lecturer.dataset_id == dataset.id)
     )
 
     if q:
@@ -99,6 +95,7 @@ def list_lecturers(
 def create_lecturer(
     payload: schemas.LecturerCreate,
     _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
+    current_user: models.User = Depends(get_current_user),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
@@ -112,6 +109,7 @@ def create_lecturer(
 
     lecturer = models.Lecturer(
         dataset_id=dataset.id,
+        created_by=current_user.id,
         employee_id=employee.id,
         code=_generate_lecturer_code(dataset, employee),
     )
@@ -170,74 +168,5 @@ def delete_lecturer(
     db: Session = Depends(get_db),
 ):
     lecturer = _get_active_lecturer(lecturer_id, dataset, db)
-    lecturer.deleted_at = datetime.now(timezone.utc)
+    db.delete(lecturer)
     db.commit()
-
-
-@router.patch("/{lecturer_id}/restore", response_model=schemas.LecturerRead)
-def restore_lecturer(
-    lecturer_id: int,
-    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
-    dataset: models.Dataset = Depends(get_dataset_for_user),
-    db: Session = Depends(get_db),
-):
-    lecturer = (
-        db.query(models.Lecturer)
-        .filter(
-            models.Lecturer.id == lecturer_id,
-            models.Lecturer.dataset_id == dataset.id,
-            models.Lecturer.deleted_at.isnot(None),
-        )
-        .first()
-    )
-    if not lecturer:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deleted lecturer not found")
-    lecturer.deleted_at = None
-    db.commit()
-    db.refresh(lecturer)
-    return _to_read(lecturer)
-
-
-# ---------------------------------------------------------------------------
-# Assign / unassign courses to a lecturer
-# ---------------------------------------------------------------------------
-@router.post("/{lecturer_id}/courses/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
-def assign_course(
-    lecturer_id: int,
-    course_id: int,
-    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
-    dataset: models.Dataset = Depends(get_dataset_for_user),
-    db: Session = Depends(get_db),
-):
-    lecturer = _get_active_lecturer(lecturer_id, dataset, db)
-    course = (
-        db.query(models.Course)
-        .filter(models.Course.id == course_id, models.Course.dataset_id == dataset.id, models.Course.deleted_at.is_(None))
-        .first()
-    )
-    if not course:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
-    if course not in lecturer.courses:
-        lecturer.courses.append(course)
-        db.commit()
-
-
-@router.delete("/{lecturer_id}/courses/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
-def unassign_course(
-    lecturer_id: int,
-    course_id: int,
-    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
-    dataset: models.Dataset = Depends(get_dataset_for_user),
-    db: Session = Depends(get_db),
-):
-    lecturer = _get_active_lecturer(lecturer_id, dataset, db)
-    course = (
-        db.query(models.Course)
-        .filter(models.Course.id == course_id, models.Course.dataset_id == dataset.id)
-        .first()
-    )
-    if not course:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
-    if course in lecturer.courses:
-        lecturer.courses.remove(course)
-        db.commit()

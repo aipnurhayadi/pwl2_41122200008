@@ -99,7 +99,7 @@ def main():
         # Remove existing (non-deleted) time slots for this dataset first
         existing = (
             db.query(TimeSlot)
-            .filter(TimeSlot.dataset_id == dataset_id, TimeSlot.deleted_at.is_(None))
+            .filter(TimeSlot.dataset_id == dataset_id)
             .count()
         )
         if existing and not args.overwrite:
@@ -113,7 +113,6 @@ def main():
         if existing and args.overwrite:
             db.query(TimeSlot).filter(
                 TimeSlot.dataset_id == dataset_id,
-                TimeSlot.deleted_at.is_(None),
             ).delete(synchronize_session=False)
             db.flush()
             print(f"Deleted {existing} existing time slots.")
@@ -125,6 +124,7 @@ def main():
                 rows.append(
                     TimeSlot(
                         dataset_id=dataset_id,
+                        created_by=1,
                         code=f"TS{seq:03d}",
                         day=DayEnum(day),
                         start_time=start,

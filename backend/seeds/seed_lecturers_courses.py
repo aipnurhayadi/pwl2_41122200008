@@ -91,6 +91,7 @@ def _ensure_employee_user(db, employee, default_password: str) -> None:
         email=_unique_user_email(db, None, employee.employee_code),
         password_hash=auth.hash_password(default_password),
         role=UserRoleEnum.LECTURER.value,
+        created_by=1,
     )
     db.add(user)
     db.flush()
@@ -144,7 +145,7 @@ def main():
         # ---- Employees + Lecturer Assignments ----
         existing_lect = (
             db.query(Lecturer)
-            .filter(Lecturer.dataset_id == dataset_id, Lecturer.deleted_at.is_(None))
+            .filter(Lecturer.dataset_id == dataset_id)
             .count()
         )
         if existing_lect and not args.overwrite:
@@ -156,7 +157,6 @@ def main():
             if existing_lect and args.overwrite:
                 db.query(Lecturer).filter(
                     Lecturer.dataset_id == dataset_id,
-                    Lecturer.deleted_at.is_(None),
                 ).delete(synchronize_session=False)
                 db.flush()
                 print(f"Deleted {existing_lect} existing lecturer assignments.")
@@ -179,12 +179,14 @@ def main():
                         email=user_email,
                         password_hash=auth.hash_password(default_employee_password),
                         role=UserRoleEnum.LECTURER.value,
+                        created_by=1,
                     )
                     db.add(user)
                     db.flush()
 
                     employee = Employee(
                         user_id=user.id,
+                        created_by=1,
                         employee_code=employee_code,
                         name=name,
                         front_title=front_title,
@@ -200,7 +202,6 @@ def main():
                     .filter(
                         Lecturer.dataset_id == dataset_id,
                         Lecturer.employee_id == employee.id,
-                        Lecturer.deleted_at.is_(None),
                     )
                     .first()
                 )
@@ -209,6 +210,7 @@ def main():
 
                 assignment = Lecturer(
                     dataset_id=dataset_id,
+                    created_by=1,
                     employee_id=employee.id,
                     code=f"{dataset.code}-{employee.employee_code}",
                 )
@@ -227,7 +229,7 @@ def main():
         # ---- Courses ----
         existing_course = (
             db.query(Course)
-            .filter(Course.dataset_id == dataset_id, Course.deleted_at.is_(None))
+            .filter(Course.dataset_id == dataset_id)
             .count()
         )
         if existing_course and not args.overwrite:
@@ -239,7 +241,6 @@ def main():
             if existing_course and args.overwrite:
                 db.query(Course).filter(
                     Course.dataset_id == dataset_id,
-                    Course.deleted_at.is_(None),
                 ).delete(synchronize_session=False)
                 db.flush()
                 print(f"Deleted {existing_course} existing courses.")
@@ -251,6 +252,7 @@ def main():
                 course_rows.append(
                     Course(
                         dataset_id=dataset_id,
+                        created_by=1,
                         name=name,
                         code=code,
                         credits=credits,

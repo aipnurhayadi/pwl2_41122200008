@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
@@ -12,32 +10,11 @@ WRITE_ALLOWED_ROLES = (models.UserRoleEnum.ADMIN.value,)
 
 
 def _resolve_user_from_token(token: str, db: Session) -> models.User | None:
-    # --- Try JWT first ---
     user_id = auth.decode_access_token(token)
     if user_id is not None:
         user = db.query(models.User).filter(models.User.id == user_id).first()
         if user:
             return user
-
-    # --- Fallback: Personal Access Token ---
-    token_hash = auth.hash_token(token)
-    pat = (
-        db.query(models.PersonalAccessToken)
-        .filter(models.PersonalAccessToken.token_hash == token_hash)
-        .first()
-    )
-    if pat:
-        now = datetime.now(timezone.utc)
-        if pat.expires_at and pat.expires_at.replace(tzinfo=timezone.utc) < now:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Personal access token has expired",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        # Update last_used_at
-        pat.last_used_at = now
-        db.commit()
-        return pat.user
 
     return None
 
@@ -46,11 +23,6 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     db: Session = Depends(get_db),
 ) -> models.User:
-    """
-    Resolves the current user from either:
-    1. A JWT access token
-    2. A Personal Access Token (static bearer token)
-    """
     exc = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Not authenticated",
@@ -109,7 +81,6 @@ def get_dataset_for_user(
                     .filter(
                         models.Lecturer.dataset_id == models.Dataset.id,
                         models.Lecturer.employee_id == current_user.employee_profile.id,
-                        models.Lecturer.deleted_at.is_(None),
                     )
                     .exists()
                 )
@@ -124,7 +95,6 @@ def get_dataset_for_user(
             .filter(
                 models.Lecturer.dataset_id == models.Dataset.id,
                 models.Lecturer.employee_id == current_user.employee_profile.id,
-                models.Lecturer.deleted_at.is_(None),
             )
             .exists()
         )

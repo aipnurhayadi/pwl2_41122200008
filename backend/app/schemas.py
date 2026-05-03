@@ -62,26 +62,6 @@ class RefreshRequest(BaseModel):
 # ===========================================================================
 # Personal Access Tokens
 # ===========================================================================
-class PATCreate(BaseModel):
-    name: str
-    expires_at: Optional[datetime] = None
-
-
-class PATRead(BaseModel):
-    id: int
-    name: str
-    last_used_at: Optional[datetime]
-    expires_at: Optional[datetime]
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class PATCreated(PATRead):
-    """Returned only once — includes the raw token value."""
-    token: str
-
-
 # ===========================================================================
 # Datasets
 # ===========================================================================
@@ -105,7 +85,6 @@ class DatasetRead(BaseModel):
     visibility: DatasetVisibilityEnum
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -200,7 +179,6 @@ class RoomRead(BaseModel):
     room_type: Optional[RoomTypeEnum]
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -288,7 +266,6 @@ class LecturerRead(BaseModel):
     gender: Optional[GenderEnum]
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -330,7 +307,6 @@ class CourseRead(BaseModel):
     description: Optional[str]
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -366,7 +342,6 @@ class TimeSlotRead(BaseModel):
     end_time: time
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -411,7 +386,6 @@ class ClassRead(BaseModel):
     description: Optional[str]
     created_at: datetime
     updated_at: datetime
-    deleted_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

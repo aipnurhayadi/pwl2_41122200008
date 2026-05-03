@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import auth, models, schemas
 from app.database import get_db
-from app.dependencies import require_any_role, WRITE_ALLOWED_ROLES
+from app.dependencies import get_current_user, require_any_role, WRITE_ALLOWED_ROLES
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 DEFAULT_EMPLOYEE_PASSWORD = "Employee123!"
@@ -91,6 +91,7 @@ def list_employees(
 def create_employee(
     payload: schemas.EmployeeCreate,
     _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
+    current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     employee_code = _generate_employee_code(db)
@@ -100,12 +101,14 @@ def create_employee(
         email=_unique_user_email(db, payload.user_email, employee_code),
         password_hash=auth.hash_password(DEFAULT_EMPLOYEE_PASSWORD),
         role=models.UserRoleEnum.LECTURER.value,
+        created_by=current_user.id,
     )
     db.add(user)
     db.flush()
 
     employee = models.Employee(
         user_id=user.id,
+        created_by=current_user.id,
         employee_code=employee_code,
         **payload_data,
     )

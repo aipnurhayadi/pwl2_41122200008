@@ -61,7 +61,6 @@ def _get_dataset_lecturer(dataset_id: int, lecturer_id: int, db: Session) -> mod
         .filter(
             models.Lecturer.id == lecturer_id,
             models.Lecturer.dataset_id == dataset_id,
-            models.Lecturer.deleted_at.is_(None),
         )
         .first()
     )
@@ -84,7 +83,6 @@ def _resolve_target_lecturer(
             .filter(
                 models.Lecturer.dataset_id == dataset_id,
                 models.Lecturer.employee_id == current_user.employee_profile.id,
-                models.Lecturer.deleted_at.is_(None),
             )
             .first()
         )
@@ -217,7 +215,7 @@ def list_bwm_criteria(db: Session = Depends(get_db)):
 @router.post("/api/bwm/criteria", response_model=schemas.CriterionRead, status_code=status.HTTP_201_CREATED)
 def create_criterion(
     payload: schemas.CriterionCreate,
-    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
+    current_user: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
     db: Session = Depends(get_db),
 ):
     if db.query(models.Criterion).filter(models.Criterion.name == payload.name).first():
@@ -227,7 +225,11 @@ def create_criterion(
     if db.query(models.Criterion).filter(models.Criterion.code == criterion_code).first():
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Criterion code already exists")
 
-    criterion = models.Criterion(**payload.model_dump(exclude={"code"}), code=criterion_code)
+    criterion = models.Criterion(
+        **payload.model_dump(exclude={"code"}),
+        code=criterion_code,
+        created_by=current_user.id,
+    )
     db.add(criterion)
     db.commit()
     db.refresh(criterion)
@@ -271,6 +273,7 @@ def upsert_bwm_response(
         response = models.BwmResponse(
             dataset_id=dataset.id,
             lecturer_id=lecturer.id,
+            created_by=current_user.id,
             best_criteria_id=payload.best_criteria_id,
             worst_criteria_id=payload.worst_criteria_id,
             scale_max=9,
@@ -288,8 +291,22 @@ def upsert_bwm_response(
     db.query(models.BwmWeight).filter(models.BwmWeight.response_id == response.id).delete(synchronize_session=False)
 
     for cid in criterion_ids:
-        db.add(models.BwmBestToOther(response_id=response.id, criterion_id=cid, value=best_to_others[cid]))
-        db.add(models.BwmOtherToWorst(response_id=response.id, criterion_id=cid, value=others_to_worst[cid]))
+        db.add(
+            models.BwmBestToOther(
+                response_id=response.id,
+                criterion_id=cid,
+                value=best_to_others[cid],
+                created_by=current_user.id,
+            )
+        )
+        db.add(
+            models.BwmOtherToWorst(
+                response_id=response.id,
+                criterion_id=cid,
+                value=others_to_worst[cid],
+                created_by=current_user.id,
+            )
+        )
 
     db.commit()
     db.refresh(response)
@@ -332,7 +349,14 @@ def solve_bwm_response(
 
     db.query(models.BwmWeight).filter(models.BwmWeight.response_id == response.id).delete(synchronize_session=False)
     for cid in criterion_ids:
-        db.add(models.BwmWeight(response_id=response.id, criterion_id=cid, weight=solved_weights[cid]))
+        db.add(
+            models.BwmWeight(
+                response_id=response.id,
+                criterion_id=cid,
+                weight=solved_weights[cid],
+                created_by=current_user.id,
+            )
+        )
 
     response.ksi = solved_ksi
     response.consistency_ratio = solved_cr

@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import String, cast, or_
 from sqlalchemy.exc import IntegrityError
@@ -7,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.dependencies import get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
+from app.dependencies import get_current_user, get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
 
 router = APIRouter(prefix="/api/datasets/{dataset_id}/time-slots", tags=["time_slots"])
 
@@ -23,7 +21,6 @@ def _get_active_slot(slot_id: int, dataset: models.Dataset, db: Session) -> mode
         .filter(
             models.TimeSlot.id == slot_id,
             models.TimeSlot.dataset_id == dataset.id,
-            models.TimeSlot.deleted_at.is_(None),
         )
         .first()
     )
@@ -42,7 +39,6 @@ def list_time_slots(
 ):
     query = db.query(models.TimeSlot).filter(
         models.TimeSlot.dataset_id == dataset.id,
-        models.TimeSlot.deleted_at.is_(None),
     )
 
     if q:
@@ -68,11 +64,13 @@ def list_time_slots(
 def create_time_slot(
     payload: schemas.TimeSlotCreate,
     _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
+    current_user: models.User = Depends(get_current_user),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
     slot = models.TimeSlot(
         dataset_id=dataset.id,
+        created_by=current_user.id,
         code=_generate_time_slot_code(dataset.id, db),
         **payload.model_dump(),
     )
@@ -121,29 +119,5 @@ def delete_time_slot(
     db: Session = Depends(get_db),
 ):
     slot = _get_active_slot(slot_id, dataset, db)
-    slot.deleted_at = datetime.now(timezone.utc)
+    db.delete(slot)
     db.commit()
-
-
-@router.patch("/{slot_id}/restore", response_model=schemas.TimeSlotRead)
-def restore_time_slot(
-    slot_id: int,
-    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
-    dataset: models.Dataset = Depends(get_dataset_for_user),
-    db: Session = Depends(get_db),
-):
-    slot = (
-        db.query(models.TimeSlot)
-        .filter(
-            models.TimeSlot.id == slot_id,
-            models.TimeSlot.dataset_id == dataset.id,
-            models.TimeSlot.deleted_at.isnot(None),
-        )
-        .first()
-    )
-    if not slot:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deleted time slot not found")
-    slot.deleted_at = None
-    db.commit()
-    db.refresh(slot)
-    return slot

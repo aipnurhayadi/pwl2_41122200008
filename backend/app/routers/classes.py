@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -7,15 +5,13 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.dependencies import get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
+from app.dependencies import get_current_user, get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
 
 router = APIRouter(prefix="/api/datasets/{dataset_id}/classes", tags=["classes"])
 
 
 def _generate_class_code(dataset_id: int, db: Session) -> str:
-    """Auto-generate a sequential class code like KLS001.
-    Counts ALL rows (including soft-deleted) to avoid reuse.
-    """
+    """Auto-generate a sequential class code like KLS001."""
     count = db.query(models.Class).filter(
         models.Class.dataset_id == dataset_id
     ).count()
@@ -28,7 +24,6 @@ def _get_active_class(class_id: int, dataset: models.Dataset, db: Session) -> mo
         .filter(
             models.Class.id == class_id,
             models.Class.dataset_id == dataset.id,
-            models.Class.deleted_at.is_(None),
         )
         .first()
     )
@@ -47,7 +42,6 @@ def list_classes(
 ):
     query = db.query(models.Class).filter(
         models.Class.dataset_id == dataset.id,
-        models.Class.deleted_at.is_(None),
     )
 
     if q:
@@ -74,12 +68,13 @@ def list_classes(
 def create_class(
     payload: schemas.ClassCreate,
     _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
+    current_user: models.User = Depends(get_current_user),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
     data["code"] = _generate_class_code(dataset.id, db)
-    obj = models.Class(dataset_id=dataset.id, **data)
+    obj = models.Class(dataset_id=dataset.id, created_by=current_user.id, **data)
     db.add(obj)
     try:
         db.commit()
@@ -129,29 +124,5 @@ def delete_class(
     db: Session = Depends(get_db),
 ):
     obj = _get_active_class(class_id, dataset, db)
-    obj.deleted_at = datetime.now(timezone.utc)
+    db.delete(obj)
     db.commit()
-
-
-@router.patch("/{class_id}/restore", response_model=schemas.ClassRead)
-def restore_class(
-    class_id: int,
-    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
-    dataset: models.Dataset = Depends(get_dataset_for_user),
-    db: Session = Depends(get_db),
-):
-    obj = (
-        db.query(models.Class)
-        .filter(
-            models.Class.id == class_id,
-            models.Class.dataset_id == dataset.id,
-            models.Class.deleted_at.isnot(None),
-        )
-        .first()
-    )
-    if not obj:
-        raise HTTPException(status_code=404, detail="Deleted class not found")
-    obj.deleted_at = None
-    db.commit()
-    db.refresh(obj)
-    return obj

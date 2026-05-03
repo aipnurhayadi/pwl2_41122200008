@@ -1,4 +1,4 @@
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Building2,
   GraduationCap,
@@ -7,15 +7,22 @@ import {
   Menu,
   X,
   ChevronLeft,
+  ChevronDown,
   Home,
   Database,
   Briefcase,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useDataset } from "@/context/DatasetContext";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 const adminLinks = [
   { path: "home", label: "Home", icon: Home, datasetAware: false },
@@ -36,12 +43,44 @@ const masterLinks = [
   { path: "classes", label: "Kelas", icon: Users },
 ];
 
+const DATASET_PAGES = ["rooms", "lecturers", "courses", "time-slots", "classes"];
+
+function resolvePathForDataset(pathname, datasetId) {
+  const segments = pathname.split("/").filter(Boolean);
+  const hasDatasetPrefix = segments[0] === "dataset";
+  const page = hasDatasetPrefix ? segments[2] : segments[0];
+  if (page && DATASET_PAGES.includes(page)) {
+    return `/dataset/${datasetId}/${page}`;
+  }
+
+  return `/dataset/${datasetId}/rooms`;
+}
+
 function NavLinks({ collapsed, closeMenu }) {
   const { pathname } = useLocation();
-  const { selected } = useDataset();
+  const navigate = useNavigate();
+  const { selected, datasets, loading, selectDataset } = useDataset();
   const { datasetId } = useParams();
 
   const activeId = datasetId ?? selected?.id;
+
+  useEffect(() => {
+    const segments = pathname.split("/").filter(Boolean);
+    if (segments[0] !== "dataset") return;
+    const maybeDatasetId = Number(segments[1]);
+    if (!Number.isInteger(maybeDatasetId)) return;
+    const found = datasets.find((d) => d.id === maybeDatasetId);
+    if (found && found.id !== selected?.id) {
+      selectDataset(found);
+    }
+  }, [pathname, datasets, selected?.id, selectDataset]);
+
+  const handleDatasetSelect = (next) => {
+    if (!next) return;
+    selectDataset(next);
+    navigate(resolvePathForDataset(pathname, next.id));
+    closeMenu();
+  };
 
   return (
     <>
@@ -53,8 +92,7 @@ function NavLinks({ collapsed, closeMenu }) {
         </p>
       )}
       {adminLinks.map(({ path, label, icon: Icon, datasetAware }) => {
-        const to =
-          datasetAware && activeId ? `/${activeId}/${path}` : `/${path}`;
+        const to = datasetAware && activeId ? `/${activeId}/${path}` : `/${path}`;
         const isActive = pathname === to;
         return (
           <Button
@@ -80,15 +118,90 @@ function NavLinks({ collapsed, closeMenu }) {
           Master Data
         </p>
       )}
+      {collapsed ? (
+        <div>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="w-full"
+              id="dataset-switcher-sidebar-collapsed"
+              disabled={loading || datasets.length === 0}
+              title={selected?.name ?? "Pilih dataset"}
+            >
+              <span className="mx-auto">
+                <Database className="h-4 w-4" />
+              </span>
+              <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {datasets.map((ds) => (
+                <DropdownMenuItem
+                  key={ds.id}
+                  selected={selected?.id === ds.id}
+                  onClick={() => handleDatasetSelect(ds)}
+                >
+                  {ds.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ) : (
+        <div className="px-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className="w-full"
+              id="dataset-switcher-sidebar"
+              disabled={loading || datasets.length === 0}
+            >
+              <span className="truncate text-left">
+                {loading ? "Memuat dataset..." : selected?.name ?? "Pilih dataset"}
+              </span>
+              <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {datasets.map((ds) => (
+                <DropdownMenuItem
+                  key={ds.id}
+                  selected={selected?.id === ds.id}
+                  onClick={() => handleDatasetSelect(ds)}
+                >
+                  {ds.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
       {masterLinks.map(({ path, label, icon: Icon }) => {
-        const to = activeId ? `/dataset/${activeId}/${path}` : "/datasets";
-        const isActive = pathname === to || pathname.startsWith(`/dataset/`) && pathname.endsWith(`/${path}`);
+        const hasDatasetContext = Boolean(activeId);
+        const to = hasDatasetContext ? `/dataset/${activeId}/${path}` : "#";
+        const isActive = hasDatasetContext && pathname === to;
+        const commonClass = `w-full ${collapsed ? "justify-center px-0" : "justify-start"}`;
+
+        if (!hasDatasetContext) {
+          return (
+            <Button
+              key={path}
+              variant="ghost"
+              disabled
+              className={commonClass}
+              title={collapsed ? `${label} (pilih dataset dulu)` : undefined}
+            >
+              <span className="flex items-center gap-3">
+                <Icon className="h-4 w-4 shrink-0" />
+                {!collapsed && <span>{label}</span>}
+              </span>
+            </Button>
+          );
+        }
+
         return (
           <Button
             key={path}
             variant={isActive ? "secondary" : "ghost"}
             asChild
-            className={`w-full ${collapsed ? "justify-center px-0" : "justify-start"}`}
+            className={commonClass}
             title={collapsed ? label : undefined}
             onClick={closeMenu}
           >
@@ -103,17 +216,14 @@ function NavLinks({ collapsed, closeMenu }) {
   );
 }
 
-export default function Sidebar() {
+export default function AdminSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <>
       <header className="md:hidden sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-background/95 backdrop-blur px-4">
-        <Link
-          to="/home"
-          className="flex items-center gap-2 font-semibold text-lg"
-        >
+        <Link to="/home" className="flex items-center gap-2 font-semibold text-lg">
           <span>TIMETABLE TOOL</span>
         </Link>
         <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)}>
@@ -141,11 +251,7 @@ export default function Sidebar() {
           >
             <span>TIMETABLE TOOL</span>
           </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileOpen(false)}
-          >
+          <Button variant="ghost" size="icon" onClick={() => setMobileOpen(false)}>
             <X className="h-5 w-5" />
           </Button>
         </div>

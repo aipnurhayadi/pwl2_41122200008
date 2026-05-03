@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import String, cast, or_
 from sqlalchemy.orm import Session
@@ -26,7 +24,7 @@ def _query_dataset_accessible_by_user(
     current_user: models.User,
     db: Session,
 ):
-    query = db.query(models.Dataset).filter(models.Dataset.id == dataset_id, models.Dataset.deleted_at.is_(None))
+    query = db.query(models.Dataset).filter(models.Dataset.id == dataset_id)
     if current_user.role in WRITE_ALLOWED_ROLES:
         if current_user.employee_profile:
             query = query.filter(
@@ -36,7 +34,6 @@ def _query_dataset_accessible_by_user(
                     .filter(
                         models.Lecturer.dataset_id == models.Dataset.id,
                         models.Lecturer.employee_id == current_user.employee_profile.id,
-                        models.Lecturer.deleted_at.is_(None),
                     )
                     .exists()
                 )
@@ -51,7 +48,6 @@ def _query_dataset_accessible_by_user(
             .filter(
                 models.Lecturer.dataset_id == models.Dataset.id,
                 models.Lecturer.employee_id == current_user.employee_profile.id,
-                models.Lecturer.deleted_at.is_(None),
             )
             .exists()
         )
@@ -72,12 +68,10 @@ def list_my_datasets(
     return (
         db.query(models.Dataset)
         .filter(
-            models.Dataset.deleted_at.is_(None),
             db.query(models.Lecturer.id)
             .filter(
                 models.Lecturer.dataset_id == models.Dataset.id,
                 models.Lecturer.employee_id == current_user.employee_profile.id,
-                models.Lecturer.deleted_at.is_(None),
             )
             .exists(),
         )
@@ -95,7 +89,6 @@ def list_datasets(
 ):
     query = db.query(models.Dataset).filter(
         models.Dataset.user_id == current_user.id,
-        models.Dataset.deleted_at.is_(None),
     )
 
     if q:
@@ -125,7 +118,6 @@ def list_public_datasets(db: Session = Depends(get_db)):
         db.query(models.Dataset)
         .filter(
             models.Dataset.visibility == models.DatasetVisibilityEnum.PUBLIC,
-            models.Dataset.deleted_at.is_(None),
         )
         .order_by(models.Dataset.updated_at.desc())
         .all()
@@ -139,7 +131,12 @@ def create_dataset(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    dataset = models.Dataset(user_id=current_user.id, code=_generate_dataset_code(db), **payload.model_dump())
+    dataset = models.Dataset(
+        user_id=current_user.id,
+        created_by=current_user.id,
+        code=_generate_dataset_code(db),
+        **payload.model_dump(),
+    )
     db.add(dataset)
     db.commit()
     db.refresh(dataset)
@@ -168,7 +165,7 @@ def get_dataset_tree(
 ):
     dataset = (
         db.query(models.Dataset)
-        .filter(models.Dataset.id == dataset_id, models.Dataset.deleted_at.is_(None))
+        .filter(models.Dataset.id == dataset_id)
         .first()
     )
     if not dataset:
@@ -183,32 +180,32 @@ def get_dataset_tree(
 
     rooms = (
         db.query(models.Room)
-        .filter(models.Room.dataset_id == dataset.id, models.Room.deleted_at.is_(None))
+        .filter(models.Room.dataset_id == dataset.id)
         .order_by(models.Room.code.asc())
         .all()
     )
     lecturers = (
         db.query(models.Lecturer, models.Employee)
         .join(models.Employee, models.Employee.id == models.Lecturer.employee_id)
-        .filter(models.Lecturer.dataset_id == dataset.id, models.Lecturer.deleted_at.is_(None))
+        .filter(models.Lecturer.dataset_id == dataset.id)
         .order_by(models.Lecturer.code.asc())
         .all()
     )
     courses = (
         db.query(models.Course)
-        .filter(models.Course.dataset_id == dataset.id, models.Course.deleted_at.is_(None))
+        .filter(models.Course.dataset_id == dataset.id)
         .order_by(models.Course.code.asc())
         .all()
     )
     time_slots = (
         db.query(models.TimeSlot)
-        .filter(models.TimeSlot.dataset_id == dataset.id, models.TimeSlot.deleted_at.is_(None))
+        .filter(models.TimeSlot.dataset_id == dataset.id)
         .order_by(models.TimeSlot.day.asc(), models.TimeSlot.start_time.asc(), models.TimeSlot.code.asc())
         .all()
     )
     classes = (
         db.query(models.Class)
-        .filter(models.Class.dataset_id == dataset.id, models.Class.deleted_at.is_(None))
+        .filter(models.Class.dataset_id == dataset.id)
         .order_by(models.Class.code.asc())
         .all()
     )
@@ -244,7 +241,6 @@ def update_dataset(
         .filter(
             models.Dataset.id == dataset_id,
             models.Dataset.user_id == current_user.id,
-            models.Dataset.deleted_at.is_(None),
         )
         .first()
     )
@@ -269,35 +265,10 @@ def delete_dataset(
         .filter(
             models.Dataset.id == dataset_id,
             models.Dataset.user_id == current_user.id,
-            models.Dataset.deleted_at.is_(None),
         )
         .first()
     )
     if not dataset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found")
-    dataset.deleted_at = datetime.now(timezone.utc)
+    db.delete(dataset)
     db.commit()
-
-
-@router.patch("/{dataset_id}/restore", response_model=schemas.DatasetRead)
-def restore_dataset(
-    dataset_id: int,
-    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    dataset = (
-        db.query(models.Dataset)
-        .filter(
-            models.Dataset.id == dataset_id,
-            models.Dataset.user_id == current_user.id,
-            models.Dataset.deleted_at.isnot(None),
-        )
-        .first()
-    )
-    if not dataset:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deleted dataset not found")
-    dataset.deleted_at = None
-    db.commit()
-    db.refresh(dataset)
-    return dataset

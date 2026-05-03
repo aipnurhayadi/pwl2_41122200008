@@ -48,6 +48,7 @@ def ensure_user_dataset(
             email=email,
             password_hash=hash_password(password),
             role=UserRoleEnum.ADMIN.value,
+            created_by=1,
         )
         db.add(user)
         db.flush()
@@ -58,7 +59,6 @@ def ensure_user_dataset(
         .filter(
             Dataset.user_id == user.id,
             Dataset.name == dataset_name,
-            Dataset.deleted_at.is_(None),
         )
         .first()
     )
@@ -69,6 +69,7 @@ def ensure_user_dataset(
     else:
         dataset = Dataset(
             user_id=user.id,
+            created_by=1,
             code="TMP",
             name=dataset_name,
             description=dataset_description,

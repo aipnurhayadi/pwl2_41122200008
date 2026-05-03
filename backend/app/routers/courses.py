@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -7,15 +5,13 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.database import get_db
-from app.dependencies import get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
+from app.dependencies import get_current_user, get_dataset_for_user, require_any_role, WRITE_ALLOWED_ROLES
 
 router = APIRouter(prefix="/api/datasets/{dataset_id}/courses", tags=["courses"])
 
 
 def _generate_course_code(dataset_id: int, db: Session) -> str:
-    """Auto-generate a sequential course code like MK001.
-    Counts ALL rows (including soft-deleted) to avoid reuse.
-    """
+    """Auto-generate a sequential course code like MK001."""
     count = db.query(models.Course).filter(
         models.Course.dataset_id == dataset_id
     ).count()
@@ -28,7 +24,6 @@ def _get_active_course(course_id: int, dataset: models.Dataset, db: Session) -> 
         .filter(
             models.Course.id == course_id,
             models.Course.dataset_id == dataset.id,
-            models.Course.deleted_at.is_(None),
         )
         .first()
     )
@@ -47,7 +42,6 @@ def list_courses(
 ):
     query = db.query(models.Course).filter(
         models.Course.dataset_id == dataset.id,
-        models.Course.deleted_at.is_(None),
     )
 
     if q:
@@ -73,12 +67,13 @@ def list_courses(
 def create_course(
     payload: schemas.CourseCreate,
     _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
+    current_user: models.User = Depends(get_current_user),
     dataset: models.Dataset = Depends(get_dataset_for_user),
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
     data["code"] = _generate_course_code(dataset.id, db)
-    course = models.Course(dataset_id=dataset.id, **data)
+    course = models.Course(dataset_id=dataset.id, created_by=current_user.id, **data)
     db.add(course)
     try:
         db.commit()
@@ -128,29 +123,5 @@ def delete_course(
     db: Session = Depends(get_db),
 ):
     course = _get_active_course(course_id, dataset, db)
-    course.deleted_at = datetime.now(timezone.utc)
+    db.delete(course)
     db.commit()
-
-
-@router.patch("/{course_id}/restore", response_model=schemas.CourseRead)
-def restore_course(
-    course_id: int,
-    _: models.User = Depends(require_any_role(*WRITE_ALLOWED_ROLES)),
-    dataset: models.Dataset = Depends(get_dataset_for_user),
-    db: Session = Depends(get_db),
-):
-    course = (
-        db.query(models.Course)
-        .filter(
-            models.Course.id == course_id,
-            models.Course.dataset_id == dataset.id,
-            models.Course.deleted_at.isnot(None),
-        )
-        .first()
-    )
-    if not course:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deleted course not found")
-    course.deleted_at = None
-    db.commit()
-    db.refresh(course)
-    return course
