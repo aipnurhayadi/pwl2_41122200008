@@ -10,17 +10,12 @@ import {
   Users,
   ChevronRight,
   ArrowLeft,
+  CalendarClock,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectItem,
-  SelectPopup,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableHeader,
@@ -37,8 +32,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
 import EmployeeAppLayout from "@/components/layouts/EmployeeAppLayout";
+import BwmSolverTab from "@/components/dataset-detail/BwmSolverTab";
+import LecturerPreferencesTab from "@/components/dataset-detail/LecturerPreferencesTab";
+import ResultsTab from "@/components/dataset-detail/ResultsTab";
 
 const PAGE_SIZE = 8;
 
@@ -50,18 +47,6 @@ const DAY_LABELS = {
   FRI: "Jumat",
   SAT: "Sabtu",
   SUN: "Minggu",
-};
-
-const BWM_SCALE_LABELS = {
-  1: "sama penting dengan",
-  2: "di antara sama penting dan cukup lebih penting dari",
-  3: "cukup lebih penting dari",
-  4: "di antara cukup dan kuat lebih penting dari",
-  5: "kuat lebih penting dari",
-  6: "di antara kuat dan sangat kuat lebih penting dari",
-  7: "sangat kuat lebih penting dari",
-  8: "di antara sangat kuat dan mutlak lebih penting dari",
-  9: "mutlak lebih penting dari",
 };
 
 function fmtTime(value) {
@@ -207,6 +192,7 @@ export default function DatasetDetail() {
   const [bwmCr, setBwmCr] = useState(null);
   const [bwmLoading, setBwmLoading] = useState(false);
   const [bwmSolving, setBwmSolving] = useState(false);
+  const [activeLecturerTab, setActiveLecturerTab] = useState("bwm");
   const [activeModal, setActiveModal] = useState(null);
   const [modalPage, setModalPage] = useState(1);
 
@@ -307,22 +293,6 @@ export default function DatasetDetail() {
 
     run();
   }, [datasetId, token, user?.role]);
-
-  const criteriaById = useMemo(() => {
-    return new Map(bwmCriteria.map((c) => [c.id, c]));
-  }, [bwmCriteria]);
-
-  const formatCriterionLabel = (criterion) => {
-    if (!criterion) return "-";
-    return criterion.code ? `${criterion.name}` : criterion.name;
-  };
-
-  const selectedBestName = bwmBestId
-    ? formatCriterionLabel(criteriaById.get(bwmBestId))
-    : "-";
-  const selectedWorstName = bwmWorstId
-    ? formatCriterionLabel(criteriaById.get(bwmWorstId))
-    : "-";
 
   const updateBestToOthers = (criterionId, value) => {
     const normalized = Math.max(1, Math.min(9, Number(value) || 1));
@@ -500,296 +470,71 @@ export default function DatasetDetail() {
             <Badge variant="outline">{tree.dataset.code}</Badge>
           </div>
         </div>
-
-        <div className="grid gap-2 sm:grid-cols-5 mt-4">
-          {quickStats.map((item) => (
-            <Card
-              key={item.label}
-              className="cursor-pointer hover:bg-accent/50 transition-colors"
-              onClick={() => setActiveModal(item.modal)}
-            >
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs text-muted-foreground">
-                  {item.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xl font-semibold">{item.value}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       </section>
 
       {token && user?.role === "LECTURER" && (
         <section className="rounded-xl border bg-card p-5 space-y-4">
-          <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+          <div className="inline-flex w-full rounded-lg border bg-muted/40 p-1 sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setActiveLecturerTab("bwm")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                activeLecturerTab === "bwm"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
               BWM Solver
-            </p>
-            <h2 className="text-lg font-semibold mt-1">
-              Preferensi Soft Constraints
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Pilih best-worst criterion, isi nilai 1-9 untuk dua vektor BWM,
-              lalu jalankan solver.
-            </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveLecturerTab("preferences")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                activeLecturerTab === "preferences"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Preferensi
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveLecturerTab("results")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                activeLecturerTab === "results"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Hasil
+            </button>
           </div>
 
-          {bwmLoading && (
-            <p className="text-sm text-muted-foreground">
-              Memuat konfigurasi BWM...
-            </p>
+          {activeLecturerTab === "bwm" && (
+            <BwmSolverTab
+              bwmLoading={bwmLoading}
+              bwmCriteria={bwmCriteria}
+              bwmBestId={bwmBestId}
+              bwmWorstId={bwmWorstId}
+              onChangeBest={onChangeBest}
+              onChangeWorst={onChangeWorst}
+              bwmBestToOthers={bwmBestToOthers}
+              bwmOthersToWorst={bwmOthersToWorst}
+              updateBestToOthers={updateBestToOthers}
+              updateOthersToWorst={updateOthersToWorst}
+              bwmSolving={bwmSolving}
+              solveBwm={solveBwm}
+              bwmWeights={bwmWeights}
+              bwmKsi={bwmKsi}
+              bwmCr={bwmCr}
+            />
           )}
 
-          {!bwmLoading && bwmCriteria.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Belum ada soft criteria untuk BWM.
-            </p>
+          {activeLecturerTab === "preferences" && (
+            <LecturerPreferencesTab datasetId={datasetId} />
           )}
 
-          {!bwmLoading && bwmCriteria.length > 0 && (
-            <>
-              <div className="grid gap-3 md:grid-cols-2">
-                <label className="space-y-1">
-                  <span className="text-sm font-medium">
-                    Pilih best criterion
-                  </span>
-                  <Select
-                    value={String(bwmBestId ?? "")}
-                    onValueChange={onChangeBest}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih best criteria">
-                        {(value) => {
-                          const criterion = bwmCriteria.find(
-                            (c) => String(c.id) === value,
-                          );
-                          return criterion
-                            ? formatCriterionLabel(criterion)
-                            : null;
-                        }}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectPopup>
-                      {bwmCriteria.map((c) => (
-                        <SelectItem key={`best-${c.id}`} value={String(c.id)}>
-                          {formatCriterionLabel(c)}
-                        </SelectItem>
-                      ))}
-                    </SelectPopup>
-                  </Select>
-                </label>
-                <label className="space-y-1">
-                  <span className="text-sm font-medium">
-                    Pilih worst criterion
-                  </span>
-                  <Select
-                    value={String(bwmWorstId ?? "")}
-                    onValueChange={onChangeWorst}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih worst criteria">
-                        {(value) => {
-                          const criterion = bwmCriteria.find(
-                            (c) => String(c.id) === value,
-                          );
-                          return criterion
-                            ? formatCriterionLabel(criterion)
-                            : null;
-                        }}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectPopup>
-                      {bwmCriteria.map((c) => (
-                        <SelectItem key={`worst-${c.id}`} value={String(c.id)}>
-                          {formatCriterionLabel(c)}
-                        </SelectItem>
-                      ))}
-                    </SelectPopup>
-                  </Select>
-                </label>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Best to Others</p>
-                <p className="text-xs text-muted-foreground">
-                  Seberapa jauh <strong>best criterion</strong> lebih penting
-                  dibanding setiap criterion lainnya? Isi nilai{" "}
-                  <strong>1</strong> (sama penting) hingga <strong>9</strong>{" "}
-                  (jauh lebih penting). Nilai untuk best criterion itu sendiri
-                  otomatis diisi 1.
-                </p>
-              </div>
-              <div className="rounded-lg border overflow-hidden">
-                <Table className="table-fixed">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Subjek</TableHead>
-                      <TableHead className="w-[40%]">Relasi</TableHead>
-                      <TableHead>Objek</TableHead>
-                      <TableHead className="w-[140px]">Nilai (1-9)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {bwmCriteria.map((c) => (
-                      <TableRow key={`bto-${c.id}`}>
-                        <TableCell className="font-medium">
-                          {selectedBestName}
-                        </TableCell>
-                        <TableCell className="w-[40%] text-xs text-muted-foreground whitespace-normal break-words">
-                          {
-                            BWM_SCALE_LABELS[
-                              Math.max(
-                                1,
-                                Math.min(9, Number(bwmBestToOthers[c.id] ?? 1)),
-                              )
-                            ]
-                          }
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {formatCriterionLabel(c)}
-                        </TableCell>
-                        <TableCell>
-                          <input
-                            type="number"
-                            min={1}
-                            max={9}
-                            value={bwmBestToOthers[c.id] ?? 1}
-                            disabled={bwmBestId === c.id}
-                            onChange={(e) =>
-                              updateBestToOthers(c.id, e.target.value)
-                            }
-                            className="w-full rounded-md border bg-background px-2 py-1 text-sm"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Others to Worst</p>
-                <p className="text-xs text-muted-foreground">
-                  Seberapa jauh setiap criterion lebih penting dibanding{" "}
-                  <strong>worst criterion</strong>? Isi nilai <strong>1</strong>{" "}
-                  (sama penting) hingga <strong>9</strong> (jauh lebih penting).
-                  Nilai untuk worst criterion itu sendiri otomatis diisi 1.
-                </p>
-              </div>
-              <div className="rounded-lg border overflow-hidden">
-                <Table className="table-fixed">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Subjek</TableHead>
-                      <TableHead className="w-[40%]">Relasi</TableHead>
-                      <TableHead>Objek</TableHead>
-                      <TableHead className="w-[140px]">Nilai (1-9)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {bwmCriteria.map((c) => (
-                      <TableRow key={`otw-${c.id}`}>
-                        <TableCell className="font-medium">
-                          {formatCriterionLabel(c)}
-                        </TableCell>
-                        <TableCell className="w-[40%] text-xs text-muted-foreground whitespace-normal break-words">
-                          {
-                            BWM_SCALE_LABELS[
-                              Math.max(
-                                1,
-                                Math.min(
-                                  9,
-                                  Number(bwmOthersToWorst[c.id] ?? 1),
-                                ),
-                              )
-                            ]
-                          }
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {selectedWorstName}
-                        </TableCell>
-                        <TableCell>
-                          <input
-                            type="number"
-                            min={1}
-                            max={9}
-                            value={bwmOthersToWorst[c.id] ?? 1}
-                            disabled={bwmWorstId === c.id}
-                            onChange={(e) =>
-                              updateOthersToWorst(c.id, e.target.value)
-                            }
-                            className="w-full rounded-md border bg-background px-2 py-1 text-sm"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  disabled={bwmSolving}
-                  onClick={solveBwm}
-                  className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
-                >
-                  {bwmSolving ? "Menyimpan..." : "Simpan"}
-                </button>
-              </div>
-
-              {(bwmWeights.length > 0 || bwmKsi !== null || bwmCr !== null) && (
-                <div>
-                  <Separator className="my-4" />
-                  <div className="space-y-1 mb-3">
-                    <p className="text-sm font-semibold">Hasil Solver BWM</p>
-                    <p className="text-xs text-muted-foreground">
-                      Bagian ini menampilkan hasil akhir perhitungan BWM untuk
-                      preferensi Anda.
-                    </p>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-2 mb-3">
-                    <p className="text-sm">
-                      <span className="font-medium">KSI:</span>{" "}
-                      {bwmKsi !== null ? Number(bwmKsi).toFixed(6) : "-"}
-                    </p>
-                    <p className="text-sm">
-                      <span className="font-medium">Consistency Ratio:</span>{" "}
-                      {bwmCr !== null ? Number(bwmCr).toFixed(6) : "-"}
-                    </p>
-                  </div>
-                  <div className="rounded-md border overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Criterion</TableHead>
-                          <TableHead className="w-[140px] text-right">
-                            Weight
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {bwmWeights.map((w) => (
-                          <TableRow key={`w-${w.criterion_id}`}>
-                            <TableCell className="font-medium">
-                              {formatCriterionLabel(
-                                criteriaById.get(w.criterion_id),
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right text-muted-foreground">
-                              {Number(w.weight).toFixed(6)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+          {activeLecturerTab === "results" && <ResultsTab />}
         </section>
       )}
       <Dialog

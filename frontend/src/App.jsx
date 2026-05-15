@@ -17,6 +17,7 @@ import Datasets from "@/pages/Datasets";
 import Employees from "@/pages/Employees";
 import MyDatasets from "@/pages/MyDatasets";
 import DatasetDetail from "@/pages/DatasetDetail";
+import LecturerPreferences from "@/pages/LecturerPreferences";
 
 function AppRoutes() {
   const { token, user } = useAuth();
@@ -32,6 +33,7 @@ function AppRoutes() {
           <Route path="/register" element={<Navigate to="/my-datasets" replace />} />
           <Route path="/my-datasets" element={<ProtectedRoute><MyDatasets /></ProtectedRoute>} />
           <Route path="/datasets/:datasetId" element={<ProtectedRoute><DatasetDetail /></ProtectedRoute>} />
+          <Route path="/datasets/:datasetId/preferences" element={<ProtectedRoute><LecturerPreferences /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/my-datasets" replace />} />
         </Routes>
       );

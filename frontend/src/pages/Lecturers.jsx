@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, X } from "lucide-react";
+import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, X, SlidersHorizontal } from "lucide-react";
 import { useDataset } from "@/context/DatasetContext";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,21 @@ import { toast } from "sonner";
 const EMPTY_FORM = { employee_id: "" };
 const PAGE_SIZE = 10;
 
+const DAY_LABELS = {
+  MON: "Senin",
+  TUE: "Selasa",
+  WED: "Rabu",
+  THU: "Kamis",
+  FRI: "Jumat",
+  SAT: "Sabtu",
+  SUN: "Minggu",
+};
+
+function fmtTime(value) {
+  if (!value) return "-";
+  return String(value).slice(0, 5);
+}
+
 export default function Lecturers() {
   const { datasetId: paramId } = useParams();
   const { selected } = useDataset();
@@ -47,8 +62,47 @@ export default function Lecturers() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [page, setPage] = useState(1);
+  const [constraintsDialog, setConstraintsDialog] = useState(null);
+  const [constraintsLoading, setConstraintsLoading] = useState(false);
+  const [constraintsSaving, setConstraintsSaving] = useState(false);
+  const [constraintCourseQuery, setConstraintCourseQuery] = useState("");
+  const [constraintSlotQuery, setConstraintSlotQuery] = useState("");
+  const [constraintCourses, setConstraintCourses] = useState([]);
+  const [constraintTimeSlots, setConstraintTimeSlots] = useState([]);
+  const [selectedCourseIds, setSelectedCourseIds] = useState([]);
+  const [selectedTimeSlotIds, setSelectedTimeSlotIds] = useState([]);
+  const [initialConstraintCourseIds, setInitialConstraintCourseIds] = useState([]);
+  const [initialConstraintTimeSlotIds, setInitialConstraintTimeSlotIds] = useState([]);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const debouncedSearch = useDebouncedValue(search, 300);
   const selectedEmployee = employees.find((emp) => String(emp.id) === form.employee_id);
+
+  const filteredConstraintCourses = constraintCourses.filter((course) => {
+    const q = constraintCourseQuery.trim().toLowerCase();
+    if (!q) return true;
+    return `${course.code} ${course.name}`.toLowerCase().includes(q);
+  });
+
+  const filteredConstraintSlots = constraintTimeSlots.filter((slot) => {
+    const q = constraintSlotQuery.trim().toLowerCase();
+    if (!q) return true;
+    const text = `${slot.code} ${DAY_LABELS[slot.day] ?? slot.day} ${fmtTime(slot.start_time)} ${fmtTime(slot.end_time)}`;
+    return text.toLowerCase().includes(q);
+  });
+
+  const groupedFilteredSlots = filteredConstraintSlots.reduce((acc, slot) => {
+    const key = slot.day;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(slot);
+    return acc;
+  }, {});
+
+  const sameIdSet = (left, right) => {
+    if (left.length !== right.length) return false;
+    const normalizedLeft = [...left].map(String).sort();
+    const normalizedRight = [...right].map(String).sort();
+    return normalizedLeft.every((value, index) => value === normalizedRight[index]);
+  };
 
   const loadAssignments = useCallback(async () => {
     if (!dsId || !token) return;
@@ -162,6 +216,138 @@ export default function Lecturers() {
     loadAssignments();
   };
 
+  const openConstraints = async (row) => {
+    setConstraintsDialog({ lecturer: row });
+    setConstraintsLoading(true);
+    setConfirmResetOpen(false);
+    setConstraintCourseQuery("");
+    setConstraintSlotQuery("");
+    try {
+      const [coursesRes, slotsRes, constraintsRes] = await Promise.all([
+        fetch(`/api/datasets/${dsId}/courses/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`/api/datasets/${dsId}/time-slots/`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`/api/datasets/${dsId}/lecturers/${row.id}/constraints`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      if (!coursesRes.ok) {
+        const err = await coursesRes.json().catch(() => ({}));
+        throw new Error(err.detail ?? "Gagal memuat daftar mata kuliah");
+      }
+      if (!slotsRes.ok) {
+        const err = await slotsRes.json().catch(() => ({}));
+        throw new Error(err.detail ?? "Gagal memuat daftar timeslot");
+      }
+      if (!constraintsRes.ok) {
+        const err = await constraintsRes.json().catch(() => ({}));
+        throw new Error(err.detail ?? "Gagal memuat batasan dosen");
+      }
+
+      const coursesBody = await coursesRes.json();
+      const slotsBody = await slotsRes.json();
+      const constraintsBody = await constraintsRes.json();
+
+      const normalizedCourses = normalizePaginatedResponse(coursesBody, 1000, 0).items;
+      const normalizedSlots = normalizePaginatedResponse(slotsBody, 1000, 0).items;
+
+      normalizedSlots.sort((a, b) => `${a.day}-${a.start_time}`.localeCompare(`${b.day}-${b.start_time}`));
+      normalizedCourses.sort((a, b) => `${a.code}`.localeCompare(`${b.code}`));
+
+      setConstraintCourses(normalizedCourses);
+      setConstraintTimeSlots(normalizedSlots);
+      const nextCourseIds = (constraintsBody.allowed_course_ids ?? []).map((id) => String(id));
+      const nextTimeSlotIds = (constraintsBody.allowed_time_slot_ids ?? []).map((id) => String(id));
+      setSelectedCourseIds(nextCourseIds);
+      setSelectedTimeSlotIds(nextTimeSlotIds);
+      setInitialConstraintCourseIds(nextCourseIds);
+      setInitialConstraintTimeSlotIds(nextTimeSlotIds);
+    } catch (e) {
+      toast.error(e.message);
+      setConstraintsDialog(null);
+    } finally {
+      setConstraintsLoading(false);
+    }
+  };
+
+  const saveConstraints = async () => {
+    if (!constraintsDialog?.lecturer?.id) return;
+
+    const changed = !sameIdSet(selectedCourseIds, initialConstraintCourseIds) || !sameIdSet(selectedTimeSlotIds, initialConstraintTimeSlotIds);
+    if (changed && !confirmResetOpen) {
+      setConfirmResetOpen(true);
+      return;
+    }
+
+    setConstraintsSaving(true);
+    try {
+      const res = await fetch(`/api/datasets/${dsId}/lecturers/${constraintsDialog.lecturer.id}/constraints`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          allowed_course_ids: selectedCourseIds.map(Number),
+          allowed_time_slot_ids: selectedTimeSlotIds.map(Number),
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? "Gagal menyimpan batasan dosen");
+      }
+
+      const body = await res.json();
+      if (body.preferences_reset) {
+        toast.warning(body.preferences_reset_message ?? "Preferensi dosen telah direset karena batasan berubah.");
+      } else {
+        toast.success("Batasan dosen berhasil disimpan");
+      }
+      setInitialConstraintCourseIds(selectedCourseIds);
+      setInitialConstraintTimeSlotIds(selectedTimeSlotIds);
+      setConstraintsDialog(null);
+      setConfirmResetOpen(false);
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setConstraintsSaving(false);
+    }
+  };
+
+  const toggleCourse = (id) => {
+    setSelectedCourseIds((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id],
+    );
+  };
+
+  const toggleSlot = (id) => {
+    setSelectedTimeSlotIds((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id],
+    );
+  };
+
+  const selectAllFilteredCourses = () => {
+    const ids = filteredConstraintCourses.map((course) => String(course.id));
+    setSelectedCourseIds((prev) => Array.from(new Set([...prev, ...ids])));
+  };
+
+  const clearAllFilteredCourses = () => {
+    const ids = new Set(filteredConstraintCourses.map((course) => String(course.id)));
+    setSelectedCourseIds((prev) => prev.filter((id) => !ids.has(id)));
+  };
+
+  const selectAllFilteredSlots = () => {
+    const ids = filteredConstraintSlots.map((slot) => String(slot.id));
+    setSelectedTimeSlotIds((prev) => Array.from(new Set([...prev, ...ids])));
+  };
+
+  const clearAllFilteredSlots = () => {
+    const ids = new Set(filteredConstraintSlots.map((slot) => String(slot.id)));
+    setSelectedTimeSlotIds((prev) => prev.filter((id) => !ids.has(id)));
+  };
+
   useEffect(() => {
     setPage(1);
   }, [debouncedSearch, dsId]);
@@ -214,7 +400,7 @@ export default function Lecturers() {
                 <TableHead>Kode Karyawan</TableHead>
                 <TableHead>Nama</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead className="w-20" />
+                <TableHead className="w-36" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -234,6 +420,7 @@ export default function Lecturers() {
                   <TableCell>
                     {!isLecturerRole && (
                       <div className="flex items-center gap-1 justify-end">
+                        <Button variant="ghost" size="icon-sm" title="Atur batasan" onClick={() => openConstraints(r)}><SlidersHorizontal className="h-3.5 w-3.5" /></Button>
                         <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
                         <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDelTarget(r)}><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
@@ -288,6 +475,145 @@ export default function Lecturers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={constraintsDialog !== null} onOpenChange={(open) => !open && setConstraintsDialog(null)}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>
+              Atur Batasan Dosen
+              {constraintsDialog?.lecturer ? ` - ${constraintsDialog.lecturer.name}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+
+          {constraintsLoading ? (
+            <div className="flex justify-center py-10 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg border p-3 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold">Mata Kuliah Diizinkan</h3>
+                    <p className="text-xs text-muted-foreground">{selectedCourseIds.length} dipilih</p>
+                  </div>
+                </div>
+
+                <Input
+                  placeholder="Cari mata kuliah..."
+                  value={constraintCourseQuery}
+                  onChange={(e) => setConstraintCourseQuery(e.target.value)}
+                />
+
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={selectAllFilteredCourses}>Pilih Semua Hasil</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={clearAllFilteredCourses}>Hapus Semua Hasil</Button>
+                </div>
+
+                <div className="max-h-72 overflow-auto rounded border">
+                  {filteredConstraintCourses.length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-3">Tidak ada mata kuliah.</p>
+                  ) : (
+                    <div className="divide-y">
+                      {filteredConstraintCourses.map((course) => {
+                        const id = String(course.id);
+                        return (
+                          <label key={id} className="flex items-center gap-3 p-2 text-sm cursor-pointer hover:bg-muted/40">
+                            <input
+                              type="checkbox"
+                              checked={selectedCourseIds.includes(id)}
+                              onChange={() => toggleCourse(id)}
+                            />
+                            <span className="font-mono text-xs">{course.code}</span>
+                            <span>{course.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-lg border p-3 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold">Timeslot Diizinkan</h3>
+                    <p className="text-xs text-muted-foreground">{selectedTimeSlotIds.length} dipilih</p>
+                  </div>
+                </div>
+
+                <Input
+                  placeholder="Cari timeslot..."
+                  value={constraintSlotQuery}
+                  onChange={(e) => setConstraintSlotQuery(e.target.value)}
+                />
+
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={selectAllFilteredSlots}>Pilih Semua Hasil</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={clearAllFilteredSlots}>Hapus Semua Hasil</Button>
+                </div>
+
+                <div className="max-h-72 overflow-auto rounded border">
+                  {filteredConstraintSlots.length === 0 ? (
+                    <p className="text-sm text-muted-foreground p-3">Tidak ada timeslot.</p>
+                  ) : (
+                    <div className="space-y-3 p-2">
+                      {Object.entries(groupedFilteredSlots).map(([day, slots]) => (
+                        <div key={day}>
+                          <p className="text-xs font-semibold text-muted-foreground mb-1">{DAY_LABELS[day] ?? day}</p>
+                          <div className="space-y-1">
+                            {slots.map((slot) => {
+                              const id = String(slot.id);
+                              return (
+                                <label key={id} className="flex items-center gap-3 p-2 text-sm cursor-pointer hover:bg-muted/40 rounded">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedTimeSlotIds.includes(id)}
+                                    onChange={() => toggleSlot(id)}
+                                  />
+                                  <span className="font-mono text-xs">{slot.code}</span>
+                                  <span>{fmtTime(slot.start_time)}-{fmtTime(slot.end_time)}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
+            <Button type="button" onClick={saveConstraints} disabled={constraintsSaving || constraintsLoading}>
+              {constraintsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan Batasan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={confirmResetOpen} onOpenChange={(open) => !open && setConfirmResetOpen(false)}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogMedia className="bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
+              <SlidersHorizontal className="h-5 w-5" />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Perubahan batasan akan mereset preferensi dosen</AlertDialogTitle>
+            <AlertDialogDescription>
+              Jika dosen sudah menyimpan preferensi, perubahan batasan ini akan menghapus preferensi tersebut agar data tetap konsisten.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant="outline">Batal</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => saveConstraints()} disabled={constraintsSaving}>
+              {constraintsSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Lanjut Simpan"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
         <AlertDialogContent size="sm">
