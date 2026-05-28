@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, X, SlidersHorizontal } from "lucide-react";
+import { GraduationCap, Plus, Trash2, Loader2, Search, X, SlidersHorizontal } from "lucide-react";
 import { useDataset } from "@/context/DatasetContext";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -160,12 +160,6 @@ export default function Lecturers() {
     setDialog({ mode: "add" });
   };
 
-  const openEdit = (row) => {
-    setForm({ employee_id: String(row.employee_id) });
-    setFormError(null);
-    setDialog({ mode: "edit", row });
-  };
-
   const handleSave = async (e) => {
     e.preventDefault();
     if (!form.employee_id) {
@@ -176,13 +170,10 @@ export default function Lecturers() {
     setFormError(null);
 
     const body = { employee_id: Number(form.employee_id) };
-    const isEdit = dialog?.mode === "edit";
-    const url = isEdit
-      ? `/api/datasets/${dsId}/lecturers/${dialog.row.id}`
-      : `/api/datasets/${dsId}/lecturers/`;
+    const url = `/api/datasets/${dsId}/lecturers/`;
 
     const res = await fetch(url, {
-      method: isEdit ? "PUT" : "POST",
+      method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
     });
@@ -194,7 +185,7 @@ export default function Lecturers() {
       return;
     }
     setDialog(null);
-    toast.success(isEdit ? "Assignment berhasil diperbarui" : "Assignment berhasil ditambahkan");
+    toast.success("Assignment berhasil ditambahkan");
     loadAssignments();
   };
 
@@ -421,7 +412,6 @@ export default function Lecturers() {
                     {!isLecturerRole && (
                       <div className="flex items-center gap-1 justify-end">
                         <Button variant="ghost" size="icon-sm" title="Atur batasan" onClick={() => openConstraints(r)}><SlidersHorizontal className="h-3.5 w-3.5" /></Button>
-                        <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
                         <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDelTarget(r)}><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
                     )}
@@ -443,7 +433,7 @@ export default function Lecturers() {
       <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{dialog?.mode === "edit" ? "Ubah Assignment" : "Assign Karyawan"}</DialogTitle>
+            <DialogTitle>Assign Karyawan</DialogTitle>
           </DialogHeader>
           <form id="lecturer-form" onSubmit={handleSave} className="space-y-4 py-1">
             <div className="space-y-1">
