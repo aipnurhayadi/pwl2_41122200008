@@ -534,7 +534,13 @@ export default function DatasetDetail() {
             <LecturerPreferencesTab datasetId={datasetId} />
           )}
 
-          {activeLecturerTab === "results" && <ResultsTab />}
+          {activeLecturerTab === "results" && (
+            <ResultsTab
+              datasetId={datasetId}
+              tree={tree}
+              bwmCriteria={bwmCriteria}
+            />
+          )}
         </section>
       )}
       <Dialog

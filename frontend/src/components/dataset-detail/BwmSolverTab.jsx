@@ -33,6 +33,11 @@ function formatCriterionLabel(criterion) {
   return criterion.name;
 }
 
+function formatCriterionGroup(criterion) {
+  if (!criterion) return "";
+  return criterion.is_lecturer_preference ? "Preferensi dosen" : "Kebijakan global";
+}
+
 export default function BwmSolverTab({
   bwmLoading,
   bwmCriteria,
@@ -67,10 +72,10 @@ export default function BwmSolverTab({
         <p className="text-xs uppercase tracking-wider text-muted-foreground">
           BWM Solver
         </p>
-        <h2 className="text-lg font-semibold mt-1">Preferensi Soft Constraints</h2>
+        <h2 className="text-lg font-semibold mt-1">Bobot Soft Constraints</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Pilih best-worst criterion, isi nilai 1-9 untuk dua vektor BWM, lalu
-          jalankan solver.
+          Pilih best-worst criterion dari seluruh soft constraint, isi nilai 1-9
+          untuk dua vektor BWM, lalu jalankan solver.
         </p>
       </div>
 
@@ -86,6 +91,13 @@ export default function BwmSolverTab({
 
       {!bwmLoading && bwmCriteria.length > 0 && (
         <>
+          <div className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+            <p>
+              Daftar ini mencakup preferensi dosen dan kebijakan global yang akan
+              dipakai sebagai komponen objective ILP.
+            </p>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-2">
             <label className="space-y-1">
               <span className="text-sm font-medium">Pilih best criterion</span>
@@ -103,7 +115,7 @@ export default function BwmSolverTab({
                 <SelectPopup>
                   {bwmCriteria.map((c) => (
                     <SelectItem key={`best-${c.id}`} value={String(c.id)}>
-                      {formatCriterionLabel(c)}
+                      {c.code} - {formatCriterionLabel(c)}
                     </SelectItem>
                   ))}
                 </SelectPopup>
@@ -125,7 +137,7 @@ export default function BwmSolverTab({
                 <SelectPopup>
                   {bwmCriteria.map((c) => (
                     <SelectItem key={`worst-${c.id}`} value={String(c.id)}>
-                      {formatCriterionLabel(c)}
+                      {c.code} - {formatCriterionLabel(c)}
                     </SelectItem>
                   ))}
                 </SelectPopup>
@@ -167,7 +179,12 @@ export default function BwmSolverTab({
                       }
                     </TableCell>
                     <TableCell className="font-medium">
-                      {formatCriterionLabel(c)}
+                      <div className="space-y-1">
+                        <p>{c.code} - {formatCriterionLabel(c)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatCriterionGroup(c)}
+                        </p>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <input
@@ -210,6 +227,14 @@ export default function BwmSolverTab({
                   <TableRow key={`otw-${c.id}`}>
                     <TableCell className="font-medium">
                       {formatCriterionLabel(c)}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <div className="space-y-1">
+                        <p>{c.code} - {formatCriterionLabel(c)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatCriterionGroup(c)}
+                        </p>
+                      </div>
                     </TableCell>
                     <TableCell className="w-[40%] text-xs text-muted-foreground whitespace-normal break-words">
                       {
@@ -282,7 +307,14 @@ export default function BwmSolverTab({
                     {bwmWeights.map((w) => (
                       <TableRow key={`w-${w.criterion_id}`}>
                         <TableCell className="font-medium">
-                          {formatCriterionLabel(criteriaById.get(w.criterion_id))}
+                          <div className="space-y-1">
+                            <p>
+                              {criteriaById.get(w.criterion_id)?.code} - {formatCriterionLabel(criteriaById.get(w.criterion_id))}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatCriterionGroup(criteriaById.get(w.criterion_id))}
+                            </p>
+                          </div>
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground">
                           {Number(w.weight).toFixed(6)}

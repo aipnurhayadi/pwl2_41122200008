@@ -135,16 +135,34 @@ export default function Lecturers() {
   }, [dsId, token, page, debouncedSearch]);
 
   const loadEmployees = useCallback(async () => {
-    if (!token || isLecturerRole) return;
-    const res = await fetch("/api/employees/", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
-      const body = await res.json();
-      const normalized = normalizePaginatedResponse(body, 1000, 0);
-      setEmployees(normalized.items);
+    if (!token || isLecturerRole || !dsId) return;
+
+    const [employeesRes, lecturersRes] = await Promise.all([
+      fetch("/api/employees/", {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+      fetch(`/api/datasets/${dsId}/lecturers/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }),
+    ]);
+
+    if (!employeesRes.ok) return;
+
+    const employeesBody = await employeesRes.json();
+    const normalizedEmployees = normalizePaginatedResponse(employeesBody, 1000, 0).items;
+
+    if (!lecturersRes.ok) {
+      setEmployees(normalizedEmployees);
+      return;
     }
-  }, [token, isLecturerRole]);
+
+    const lecturersBody = await lecturersRes.json();
+    const assignedEmployeeIds = new Set(
+      normalizePaginatedResponse(lecturersBody, 1000, 0).items.map((row) => String(row.employee_id)),
+    );
+
+    setEmployees(normalizedEmployees.filter((emp) => !assignedEmployeeIds.has(String(emp.id))));
+  }, [token, isLecturerRole, dsId]);
 
   useEffect(() => {
     loadAssignments();
@@ -187,6 +205,7 @@ export default function Lecturers() {
     setDialog(null);
     toast.success("Assignment berhasil ditambahkan");
     loadAssignments();
+    loadEmployees();
   };
 
   const handleDelete = async () => {
@@ -205,6 +224,7 @@ export default function Lecturers() {
     toast.success("Assignment berhasil dihapus");
     setDelTarget(null);
     loadAssignments();
+    loadEmployees();
   };
 
   const openConstraints = async (row) => {

@@ -12,10 +12,12 @@ import {
   Database,
   Briefcase,
   Users,
+  Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useDataset } from "@/context/DatasetContext";
+import { useAuth } from "@/context/AuthContext";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -60,9 +62,12 @@ function NavLinks({ collapsed, closeMenu }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const { selected, datasets, loading, selectDataset } = useDataset();
+  const { token } = useAuth();
   const { datasetId } = useParams();
+  const [generating, setGenerating] = useState(false);
 
   const activeId = datasetId ?? selected?.id;
+  const generateDatasetId = activeId ?? selected?.id;
 
   useEffect(() => {
     const segments = pathname.split("/").filter(Boolean);
@@ -80,6 +85,89 @@ function NavLinks({ collapsed, closeMenu }) {
     selectDataset(next);
     navigate(resolvePathForDataset(pathname, next.id));
     closeMenu();
+  };
+
+  const handleGenerate = async () => {
+    if (!generateDatasetId) {
+      window.alert("Pilih dataset terlebih dahulu.");
+      return;
+    }
+
+    if (!token) {
+      window.alert("User belum login.");
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const treeRes = await fetch(`/api/datasets/${generateDatasetId}/tree`, { headers });
+      if (!treeRes.ok) {
+        const body = await treeRes.json().catch(() => ({}));
+        throw new Error(body.detail ?? "Gagal memuat data dataset");
+      }
+
+      const tree = await treeRes.json();
+      const classGroup = tree?.classes?.[0];
+      const courses = tree?.courses ?? [];
+      const lecturers = tree?.lecturers ?? [];
+
+      if (!classGroup || courses.length === 0 || lecturers.length === 0) {
+        throw new Error("Dataset harus memiliki kelas, mata kuliah, dan dosen terlebih dahulu.");
+      }
+
+      let requestPayload = null;
+      for (const lecturer of lecturers) {
+        const constraintsRes = await fetch(
+          `/api/datasets/${generateDatasetId}/lecturers/${lecturer.id}/constraints`,
+          { headers },
+        );
+        if (!constraintsRes.ok) continue;
+
+        const constraints = await constraintsRes.json();
+        const allowedCourseIds = new Set((constraints.allowed_course_ids ?? []).map(String));
+        const course = courses.find((row) => allowedCourseIds.has(String(row.id)));
+
+        if (course) {
+          requestPayload = {
+            teaching_requests: [
+              {
+                class_id: classGroup.id,
+                course_id: course.id,
+                lecturer_id: lecturer.id,
+                duration_slots: 1,
+              },
+            ],
+            daily_session_limit: 2,
+          };
+          break;
+        }
+      }
+
+      if (!requestPayload) {
+        throw new Error("Tidak ada kombinasi dosen dan mata kuliah yang valid untuk generate.");
+      }
+
+      const generateRes = await fetch(`/api/datasets/${generateDatasetId}/timetable-runs/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: JSON.stringify(requestPayload),
+      });
+
+      const responseBody = await generateRes.json().catch(() => ({}));
+      if (!generateRes.ok) {
+        throw new Error(responseBody.detail ?? "Gagal menjalankan generate");
+      }
+
+      window.alert(`Generate berhasil dijalankan. Run ID: ${responseBody.id ?? "-"}`);
+    } catch (error) {
+      window.alert(error.message ?? "Gagal menjalankan generate");
+    } finally {
+      setGenerating(false);
+    }
   };
 
   return (
@@ -120,56 +208,80 @@ function NavLinks({ collapsed, closeMenu }) {
       )}
       {collapsed ? (
         <div>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className="w-full"
-              id="dataset-switcher-sidebar-collapsed"
-              disabled={loading || datasets.length === 0}
-              title={selected?.name ?? "Pilih dataset"}
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="flex-1"
+                id="dataset-switcher-sidebar-collapsed"
+                disabled={loading || datasets.length === 0}
+                title={selected?.name ?? "Pilih dataset"}
+              >
+                <span className="mx-auto">
+                  <Database className="h-4 w-4" />
+                </span>
+                <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {datasets.map((ds) => (
+                  <DropdownMenuItem
+                    key={ds.id}
+                    selected={selected?.id === ds.id}
+                    onClick={() => handleDatasetSelect(ds)}
+                  >
+                    {ds.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              onClick={handleGenerate}
+              disabled={!generateDatasetId || generating}
+              title="Generate timetable"
             >
-              <span className="mx-auto">
-                <Database className="h-4 w-4" />
-              </span>
-              <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {datasets.map((ds) => (
-                <DropdownMenuItem
-                  key={ds.id}
-                  selected={selected?.id === ds.id}
-                  onClick={() => handleDatasetSelect(ds)}
-                >
-                  {ds.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <Zap className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="px-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className="w-full"
-              id="dataset-switcher-sidebar"
-              disabled={loading || datasets.length === 0}
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="flex-1"
+                id="dataset-switcher-sidebar"
+                disabled={loading || datasets.length === 0}
+              >
+                <span className="truncate text-left">
+                  {loading ? "Memuat dataset..." : selected?.name ?? "Pilih dataset"}
+                </span>
+                <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {datasets.map((ds) => (
+                  <DropdownMenuItem
+                    key={ds.id}
+                    selected={selected?.id === ds.id}
+                    onClick={() => handleDatasetSelect(ds)}
+                  >
+                    {ds.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleGenerate}
+              disabled={!generateDatasetId || generating}
             >
-              <span className="truncate text-left">
-                {loading ? "Memuat dataset..." : selected?.name ?? "Pilih dataset"}
-              </span>
-              <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {datasets.map((ds) => (
-                <DropdownMenuItem
-                  key={ds.id}
-                  selected={selected?.id === ds.id}
-                  onClick={() => handleDatasetSelect(ds)}
-                >
-                  {ds.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <Zap className="h-4 w-4" />
+              <span>Generate</span>
+            </Button>
+          </div>
         </div>
       )}
 

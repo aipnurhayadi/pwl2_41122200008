@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import {
@@ -27,9 +28,10 @@ import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { toast } from "sonner";
 
 const EMPTY_FORM = {
-  name: "", credits: "", semester: "", curriculum_year: "", description: "",
+  name: "", major_id: "", credits: "", semester: "", curriculum_year: "", description: "",
 };
 const PAGE_SIZE = 10;
+const EMPTY_MAJOR_VALUE = "__NONE__";
 
 export default function Courses() {
   const { datasetId: paramId } = useParams();
@@ -38,6 +40,7 @@ export default function Courses() {
   const dsId = paramId ?? selected?.id;
 
   const [rows, setRows] = useState([]);
+  const [majors, setMajors] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -79,12 +82,32 @@ export default function Courses() {
     }
   }, [dsId, token, page, debouncedSearch]);
 
+  const loadMajors = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`/api/majors/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? "Gagal memuat daftar program studi");
+      }
+      const body = await res.json();
+      const items = Array.isArray(body) ? body : body.items ?? [];
+      setMajors(items);
+    } catch (e) {
+      toast.error(e.message);
+    }
+  }, [token]);
+
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadMajors(); }, [loadMajors]);
 
   const openAdd = () => { setForm(EMPTY_FORM); setFormError(null); setDialog({ mode: "add" }); };
   const openEdit = (row) => {
     setForm({
       name: row.name ?? "",
+      major_id: row.major_id != null ? String(row.major_id) : "",
       credits: row.credits ?? "",
       semester: row.semester ?? "",
       curriculum_year: row.curriculum_year ?? "",
@@ -101,6 +124,7 @@ export default function Courses() {
     const intOrNull = (v) => v !== "" ? parseInt(v, 10) : null;
     const body = {
       name: form.name.trim(),
+      major_id: form.major_id !== "" ? parseInt(form.major_id, 10) : null,
       credits: parseInt(form.credits, 10),
       semester: intOrNull(form.semester),
       curriculum_year: intOrNull(form.curriculum_year),
@@ -193,6 +217,7 @@ export default function Courses() {
               <TableRow>
                 <TableHead>Kode</TableHead>
                 <TableHead>Nama Mata Kuliah</TableHead>
+                <TableHead>Program Studi</TableHead>
                 <TableHead>SKS</TableHead>
                 <TableHead>Sem.</TableHead>
                 <TableHead className="w-20" />
@@ -201,7 +226,7 @@ export default function Courses() {
             <TableBody>
               {totalItems === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     {search ? "Tidak ada hasil pencarian." : "Belum ada data mata kuliah."}
                   </TableCell>
                 </TableRow>
@@ -210,6 +235,7 @@ export default function Courses() {
                 <TableRow key={r.id}>
                   <TableCell className="font-mono font-medium">{r.code}</TableCell>
                   <TableCell>{r.name}</TableCell>
+                  <TableCell>{r.major_name ?? <span className="text-muted-foreground text-xs">—</span>}</TableCell>
                   <TableCell>{r.credits}</TableCell>
                   <TableCell>{r.semester ?? <span className="text-muted-foreground text-xs">—</span>}</TableCell>
                   <TableCell>
@@ -241,6 +267,31 @@ export default function Courses() {
             <div className="space-y-1">
               <Label htmlFor="c-name">Nama Mata Kuliah *</Label>
               <Input id="c-name" value={form.name} onChange={setField("name")} required />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="c-major">Program Studi</Label>
+              <Select
+                value={form.major_id || EMPTY_MAJOR_VALUE}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, major_id: v === EMPTY_MAJOR_VALUE ? "" : v }))}
+              >
+                <SelectTrigger id="c-major">
+                  <SelectValue placeholder="Pilih program studi">
+                    {(value) => {
+                      if (!value || value === EMPTY_MAJOR_VALUE) return "Pilih program studi";
+                      const selectedMajor = majors.find((m) => String(m.id) === String(value));
+                      return selectedMajor?.name ?? "Pilih program studi";
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectPopup>
+                  <SelectItem value={EMPTY_MAJOR_VALUE}>(Tidak ditentukan)</SelectItem>
+                  {majors.map((major) => (
+                    <SelectItem key={major.id} value={String(major.id)}>
+                      {major.name}
+                    </SelectItem>
+                  ))}
+                </SelectPopup>
+              </Select>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
