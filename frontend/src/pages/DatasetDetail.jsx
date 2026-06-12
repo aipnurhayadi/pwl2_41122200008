@@ -33,9 +33,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import EmployeeAppLayout from "@/components/layouts/EmployeeAppLayout";
-import BwmSolverTab from "@/components/dataset-detail/BwmSolverTab";
-import LecturerPreferencesTab from "@/components/dataset-detail/LecturerPreferencesTab";
-import ResultsTab from "@/components/dataset-detail/ResultsTab";
 
 const PAGE_SIZE = 8;
 
@@ -182,17 +179,6 @@ export default function DatasetDetail() {
   const [tree, setTree] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [bwmCriteria, setBwmCriteria] = useState([]);
-  const [bwmBestId, setBwmBestId] = useState(null);
-  const [bwmWorstId, setBwmWorstId] = useState(null);
-  const [bwmBestToOthers, setBwmBestToOthers] = useState({});
-  const [bwmOthersToWorst, setBwmOthersToWorst] = useState({});
-  const [bwmWeights, setBwmWeights] = useState([]);
-  const [bwmKsi, setBwmKsi] = useState(null);
-  const [bwmCr, setBwmCr] = useState(null);
-  const [bwmLoading, setBwmLoading] = useState(false);
-  const [bwmSolving, setBwmSolving] = useState(false);
-  const [activeLecturerTab, setActiveLecturerTab] = useState("bwm");
   const [activeModal, setActiveModal] = useState(null);
   const [modalPage, setModalPage] = useState(1);
 
@@ -219,158 +205,6 @@ export default function DatasetDetail() {
     run();
   }, [datasetId, token]);
 
-  useEffect(() => {
-    if (!datasetId || !token || user?.role !== "LECTURER") return;
-
-    const initMaps = (criteria, response = null) => {
-      const defaultBestToOthers = {};
-      const defaultOthersToWorst = {};
-
-      criteria.forEach((c) => {
-        defaultBestToOthers[c.id] = 1;
-        defaultOthersToWorst[c.id] = 1;
-      });
-
-      if (response) {
-        response.best_to_others.forEach((row) => {
-          defaultBestToOthers[row.criterion_id] = row.value;
-        });
-        response.others_to_worst.forEach((row) => {
-          defaultOthersToWorst[row.criterion_id] = row.value;
-        });
-      }
-
-      return { defaultBestToOthers, defaultOthersToWorst };
-    };
-
-    const run = async () => {
-      setBwmLoading(true);
-      try {
-        const headers = { Authorization: `Bearer ${token}` };
-
-        const criteriaRes = await fetch("/api/bwm/criteria", { headers });
-        if (!criteriaRes.ok) {
-          const body = await criteriaRes.json().catch(() => ({}));
-          throw new Error(body.detail ?? "Gagal memuat kriteria BWM");
-        }
-        const criteria = await criteriaRes.json();
-        setBwmCriteria(criteria);
-
-        let response = null;
-        const responseRes = await fetch(
-          `/api/datasets/${datasetId}/bwm/response`,
-          { headers },
-        );
-        if (responseRes.ok) {
-          response = await responseRes.json();
-          setBwmWeights(response.weights ?? []);
-          setBwmKsi(response.ksi ?? null);
-          setBwmCr(response.consistency_ratio ?? null);
-          setBwmBestId(response.best_criteria_id);
-          setBwmWorstId(response.worst_criteria_id);
-        } else if (responseRes.status !== 404) {
-          const body = await responseRes.json().catch(() => ({}));
-          throw new Error(body.detail ?? "Gagal memuat response BWM");
-        }
-
-        const { defaultBestToOthers, defaultOthersToWorst } = initMaps(
-          criteria,
-          response,
-        );
-        setBwmBestToOthers(defaultBestToOthers);
-        setBwmOthersToWorst(defaultOthersToWorst);
-
-        if (!response && criteria.length >= 2) {
-          setBwmBestId(criteria[0].id);
-          setBwmWorstId(criteria[criteria.length - 1].id);
-        }
-      } catch (e) {
-        toast.error(e.message);
-      } finally {
-        setBwmLoading(false);
-      }
-    };
-
-    run();
-  }, [datasetId, token, user?.role]);
-
-  const updateBestToOthers = (criterionId, value) => {
-    const normalized = Math.max(1, Math.min(9, Number(value) || 1));
-    setBwmBestToOthers((prev) => ({ ...prev, [criterionId]: normalized }));
-  };
-
-  const updateOthersToWorst = (criterionId, value) => {
-    const normalized = Math.max(1, Math.min(9, Number(value) || 1));
-    setBwmOthersToWorst((prev) => ({ ...prev, [criterionId]: normalized }));
-  };
-
-  const onChangeBest = (value) => {
-    const next = Number(value);
-    setBwmBestId(next);
-    setBwmBestToOthers((prev) => ({ ...prev, [next]: 1 }));
-  };
-
-  const onChangeWorst = (value) => {
-    const next = Number(value);
-    setBwmWorstId(next);
-    setBwmOthersToWorst((prev) => ({ ...prev, [next]: 1 }));
-  };
-
-  const buildPayload = () => {
-    const criterionIds = bwmCriteria.map((c) => c.id);
-    return {
-      best_criteria_id: bwmBestId,
-      worst_criteria_id: bwmWorstId,
-      best_to_others: criterionIds.map((id) => ({
-        criterion_id: id,
-        value: Number(bwmBestToOthers[id] ?? 1),
-      })),
-      others_to_worst: criterionIds.map((id) => ({
-        criterion_id: id,
-        value: Number(bwmOthersToWorst[id] ?? 1),
-      })),
-    };
-  };
-
-  const solveBwm = async () => {
-    if (!datasetId || !token || user?.role !== "LECTURER") return;
-
-    setBwmSolving(true);
-    try {
-      const saveRes = await fetch(`/api/datasets/${datasetId}/bwm/response`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(buildPayload()),
-      });
-      if (!saveRes.ok) {
-        const body = await saveRes.json().catch(() => ({}));
-        throw new Error(
-          body.detail?.message ?? body.detail ?? "Gagal menyimpan input BWM",
-        );
-      }
-
-      const solveRes = await fetch(`/api/datasets/${datasetId}/bwm/solve`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!solveRes.ok) {
-        const body = await solveRes.json().catch(() => ({}));
-        throw new Error(body.detail ?? "Gagal menjalankan BWM solver");
-      }
-      const data = await solveRes.json();
-      setBwmWeights(data.weights ?? []);
-      setBwmKsi(data.ksi ?? null);
-      setBwmCr(data.consistency_ratio ?? null);
-      toast.success("BWM solver berhasil dijalankan.");
-    } catch (e) {
-      toast.error(e.message);
-    } finally {
-      setBwmSolving(false);
-    }
-  };
 
   const quickStats = useMemo(() => {
     if (!tree) return [];
@@ -411,10 +245,21 @@ export default function DatasetDetail() {
     (modalPage - 1) * PAGE_SIZE,
     modalPage * PAGE_SIZE,
   );
+  const isAdmin = user?.role === "ADMIN";
   const backTo = user?.role === "LECTURER" ? "/my-datasets" : "/datasets";
   const navBackLink = <></>;
 
   if (loading) {
+    if (isAdmin) {
+      return (
+        <main className="container mx-auto max-w-5xl px-4 py-8">
+          <div className="flex items-center justify-center py-20 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        </main>
+      );
+    }
+
     return (
       <EmployeeAppLayout
         title="Detail Dataset"
@@ -429,6 +274,14 @@ export default function DatasetDetail() {
   }
 
   if (error) {
+    if (isAdmin) {
+      return (
+        <main className="container mx-auto max-w-5xl px-4 py-8">
+          <p className="text-destructive">{error}</p>
+        </main>
+      );
+    }
+
     return (
       <EmployeeAppLayout
         title="Detail Dataset"
@@ -443,13 +296,8 @@ export default function DatasetDetail() {
 
   if (!tree) return null;
 
-  return (
-    <EmployeeAppLayout
-      title="Detail Dataset"
-      icon={Database}
-      navContent={navBackLink}
-      mainClassName="space-y-6"
-    >
+  const content = (
+    <>
       <section className="rounded-xl border bg-card p-5">
         <div className="flex flex-wrap items-start gap-3">
           <Link
@@ -473,89 +321,146 @@ export default function DatasetDetail() {
       </section>
 
       {token && user?.role === "LECTURER" && (
-        <section className="rounded-xl border bg-card p-5 space-y-4">
-          <div className="inline-flex w-full rounded-lg border bg-muted/40 p-1 sm:w-auto">
-            <button
-              type="button"
-              onClick={() => setActiveLecturerTab("bwm")}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                activeLecturerTab === "bwm"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              BWM Solver
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveLecturerTab("preferences")}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                activeLecturerTab === "preferences"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Preferensi
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveLecturerTab("results")}
-              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                activeLecturerTab === "results"
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Hasil
-            </button>
+        <section className="rounded-xl border bg-card p-5 space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <CalendarClock className="h-4 w-4 text-muted-foreground" />
+            Fitur Lanjutan
           </div>
-
-          {activeLecturerTab === "bwm" && (
-            <BwmSolverTab
-              bwmLoading={bwmLoading}
-              bwmCriteria={bwmCriteria}
-              bwmBestId={bwmBestId}
-              bwmWorstId={bwmWorstId}
-              onChangeBest={onChangeBest}
-              onChangeWorst={onChangeWorst}
-              bwmBestToOthers={bwmBestToOthers}
-              bwmOthersToWorst={bwmOthersToWorst}
-              updateBestToOthers={updateBestToOthers}
-              updateOthersToWorst={updateOthersToWorst}
-              bwmSolving={bwmSolving}
-              solveBwm={solveBwm}
-              bwmWeights={bwmWeights}
-              bwmKsi={bwmKsi}
-              bwmCr={bwmCr}
-            />
-          )}
-
-          {activeLecturerTab === "preferences" && (
-            <LecturerPreferencesTab datasetId={datasetId} />
-          )}
-
-          {activeLecturerTab === "results" && (
-            <ResultsTab
-              datasetId={datasetId}
-              tree={tree}
-              bwmCriteria={bwmCriteria}
-            />
-          )}
+          <p className="text-sm text-muted-foreground">
+            Modul solver dan preferensi dosen belum diaktifkan pada backend Laravel saat ini.
+          </p>
         </section>
       )}
-      <Dialog
-        open={!!activeModal}
-        onOpenChange={(open) => {
-          if (!open) setActiveModal(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] flex flex-col gap-4">
+
+      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        {quickStats.map((item) => (
+          <Card key={item.label} className="rounded-xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm text-muted-foreground">{item.label}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="text-2xl font-semibold">{item.value}</div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => setActiveModal(item.modal)}
+              >
+                Lihat Data
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
+      <section className="space-y-4">
+        <TreeTableSection
+          icon={Building2}
+          title="Ruangan"
+          rows={tree.rooms}
+          emptyMessage="Belum ada data ruangan."
+          itemLabel="ruangan"
+          columns={[
+            { key: "code", label: "Kode" },
+            { key: "building", label: "Gedung" },
+            { key: "type", label: "Tipe" },
+          ]}
+          renderRow={(room) => (
+            <TableRow key={room.id}>
+              <TableCell>{room.code}</TableCell>
+              <TableCell>{room.building_name}</TableCell>
+              <TableCell>{room.room_type ?? "-"}</TableCell>
+            </TableRow>
+          )}
+        />
+
+        <TreeTableSection
+          icon={GraduationCap}
+          title="Dosen"
+          rows={tree.lecturers}
+          emptyMessage="Belum ada data dosen."
+          itemLabel="dosen"
+          columns={[
+            { key: "code", label: "Kode" },
+            { key: "employee", label: "Kode Pegawai" },
+            { key: "name", label: "Nama" },
+          ]}
+          renderRow={(lecturer) => (
+            <TableRow key={lecturer.id}>
+              <TableCell>{lecturer.code}</TableCell>
+              <TableCell>{lecturer.employee_code ?? "-"}</TableCell>
+              <TableCell>{lecturer.name ?? "-"}</TableCell>
+            </TableRow>
+          )}
+        />
+
+        <TreeTableSection
+          icon={BookOpen}
+          title="Mata Kuliah"
+          rows={tree.courses}
+          emptyMessage="Belum ada data mata kuliah."
+          itemLabel="mata kuliah"
+          columns={[
+            { key: "code", label: "Kode" },
+            { key: "name", label: "Nama" },
+            { key: "credits", label: "SKS" },
+          ]}
+          renderRow={(course) => (
+            <TableRow key={course.id}>
+              <TableCell>{course.code}</TableCell>
+              <TableCell>{course.name}</TableCell>
+              <TableCell>{course.credits}</TableCell>
+            </TableRow>
+          )}
+        />
+
+        <TreeTableSection
+          icon={Clock}
+          title="Slot Waktu"
+          rows={tree.time_slots}
+          emptyMessage="Belum ada data slot waktu."
+          itemLabel="slot waktu"
+          columns={[
+            { key: "code", label: "Kode" },
+            { key: "day", label: "Hari" },
+            { key: "start", label: "Mulai" },
+            { key: "end", label: "Selesai" },
+          ]}
+          renderRow={(slot) => (
+            <TableRow key={slot.id}>
+              <TableCell>{slot.code}</TableCell>
+              <TableCell>{DAY_LABELS[slot.day] ?? slot.day}</TableCell>
+              <TableCell>{fmtTime(slot.start_time)}</TableCell>
+              <TableCell>{fmtTime(slot.end_time)}</TableCell>
+            </TableRow>
+          )}
+        />
+
+        <TreeTableSection
+          icon={Users}
+          title="Kelas"
+          rows={tree.classes}
+          emptyMessage="Belum ada data kelas."
+          itemLabel="kelas"
+          columns={[
+            { key: "code", label: "Kode" },
+            { key: "name", label: "Nama" },
+          ]}
+          renderRow={(classItem) => (
+            <TableRow key={classItem.id}>
+              <TableCell>{classItem.code}</TableCell>
+              <TableCell>{classItem.name}</TableCell>
+            </TableRow>
+          )}
+        />
+      </section>
+
+      <Dialog open={activeModal !== null} onOpenChange={(open) => !open && setActiveModal(null)}>
+        <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
-            <DialogTitle>
-              {activeModal ? MODAL_DEFS[activeModal]?.title : ""}
-            </DialogTitle>
+            <DialogTitle>{activeModal ? MODAL_DEFS[activeModal]?.title : "Detail"}</DialogTitle>
           </DialogHeader>
-          <div className="overflow-y-auto rounded-md border">
+          <div className="rounded-md border overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -565,17 +470,13 @@ export default function DatasetDetail() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {activeModal && modalRows.length === 0 ? (
+                {modalRows.length === 0 ? (
                   <TableRow>
-                    <TableCell
-                      colSpan={modalColumns.length}
-                      className="text-center text-muted-foreground py-8"
-                    >
+                    <TableCell colSpan={Math.max(1, modalColumns.length)} className="text-center text-muted-foreground py-8">
                       Tidak ada data.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  activeModal &&
                   pagedModalRows.map((cells, i) => (
                     <TableRow key={i}>
                       {cells.map((cell, j) => (
@@ -598,6 +499,21 @@ export default function DatasetDetail() {
           </div>
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  if (isAdmin) {
+    return <main className="container mx-auto max-w-5xl px-4 py-8 space-y-6">{content}</main>;
+  }
+
+  return (
+    <EmployeeAppLayout
+      title="Detail Dataset"
+      icon={Database}
+      navContent={navBackLink}
+      mainClassName="space-y-6"
+    >
+      {content}
     </EmployeeAppLayout>
   );
 }

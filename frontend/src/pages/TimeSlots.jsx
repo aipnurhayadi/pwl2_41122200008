@@ -1,28 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Clock, Plus, Pencil, Trash2, Loader2, Search, X } from "lucide-react";
+import { Clock, Loader2, Search, X } from "lucide-react";
 import { useDataset } from "@/context/DatasetContext";
 import { useAuth } from "@/context/AuthContext";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "@/components/ui/select";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogMedia,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
 import DataTablePagination from "@/components/DataTablePagination";
-import { normalizePaginatedResponse } from "@/lib/paginated";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { toast } from "sonner";
 
@@ -30,12 +14,9 @@ const DAY_LABELS = {
   MON: "Senin", TUE: "Selasa", WED: "Rabu", THU: "Kamis",
   FRI: "Jumat", SAT: "Sabtu", SUN: "Minggu",
 };
-const DAYS = Object.entries(DAY_LABELS);
-const EMPTY_FORM = { day: "MON", start_time: "07:00", end_time: "08:00" };
 const PAGE_SIZE = 10;
 
 function fmtTime(t) { return t ? t.slice(0, 5) : "—"; }
-const timeInputClass = "h-8 w-full rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring dark:bg-input/30";
 
 export default function TimeSlots() {
   const { datasetId: paramId } = useParams();
@@ -43,112 +24,55 @@ export default function TimeSlots() {
   const { token } = useAuth();
   const dsId = paramId ?? selected?.id;
 
-  const [rows, setRows] = useState([]);
-  const [totalItems, setTotalItems] = useState(0);
+  const [allRows, setAllRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [dialog, setDialog] = useState(null);
-  const [delTarget, setDelTarget] = useState(null);
-  const [form, setForm] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState(null);
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search, 300);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
     if (!dsId || !token) return;
     setLoading(true);
-    setFormError(null);
-    try {
-      const offset = (page - 1) * PAGE_SIZE;
-      const params = new URLSearchParams({
-        limit: String(PAGE_SIZE),
-        offset: String(offset),
-      });
-      if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
-
-      const res = await fetch(`/api/datasets/${dsId}/time-slots/?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail ?? "Gagal memuat slot waktu");
+    const run = async () => {
+      try {
+        const res = await fetch(`/api/datasets/${dsId}/tree`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail ?? "Gagal memuat slot waktu");
+        }
+        const body = await res.json();
+        setAllRows(Array.isArray(body.time_slots) ? body.time_slots : []);
+      } catch (e) {
+        toast.error(e.message);
+      } finally {
+        setLoading(false);
       }
-      const body = await res.json();
-      const normalized = normalizePaginatedResponse(body, PAGE_SIZE, offset);
-      setRows(normalized.items);
-      setTotalItems(normalized.total);
-    } catch (e) {
-      toast.error(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [dsId, token, page, debouncedSearch]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const openAdd = () => { setForm(EMPTY_FORM); setFormError(null); setDialog({ mode: "add" }); };
-  const openEdit = (row) => {
-    setForm({
-      day: row.day ?? "MON",
-      start_time: fmtTime(row.start_time),
-      end_time: fmtTime(row.end_time),
-    });
-    setFormError(null);
-    setDialog({ mode: "edit", row });
-  };
-
-  const handleSave = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setFormError(null);
-    const body = {
-      day: form.day,
-      start_time: form.start_time + ":00",
-      end_time: form.end_time + ":00",
     };
-    const isEdit = dialog?.mode === "edit";
-    const url = isEdit
-      ? `/api/datasets/${dsId}/time-slots/${dialog.row.id}`
-      : `/api/datasets/${dsId}/time-slots/`;
-    const res = await fetch(url, {
-      method: isEdit ? "PUT" : "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(body),
-    });
-    setSaving(false);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      toast.error(err.detail ?? "Gagal menyimpan");
-      return;
-    }
-    setDialog(null);
-    toast.success(isEdit ? "Slot waktu berhasil diperbarui" : "Slot waktu berhasil ditambahkan");
-    load();
-  };
 
-  const handleDelete = async () => {
-    if (!delTarget) return;
-    setSaving(true);
-    const res = await fetch(`/api/datasets/${dsId}/time-slots/${delTarget.id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setSaving(false);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      toast.error(err.detail ?? "Gagal menghapus slot waktu");
-      return;
-    }
-    toast.success("Slot waktu berhasil dihapus");
-    setDelTarget(null);
-    load();
-  };
+    run();
+  }, [dsId, token]);
 
-  const setField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const filteredRows = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    if (!q) return allRows;
+
+    return allRows.filter((row) => {
+      const haystack = `${row.code ?? ""} ${row.day ?? ""} ${fmtTime(row.start_time)} ${fmtTime(row.end_time)}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [allRows, debouncedSearch]);
+
+  const totalItems = filteredRows.length;
+  const rows = useMemo(() => {
+    const offset = (page - 1) * PAGE_SIZE;
+    return filteredRows.slice(offset, offset + PAGE_SIZE);
+  }, [filteredRows, page]);
+
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, dsId]);
+  }, [debouncedSearch]);
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
@@ -171,8 +95,8 @@ export default function TimeSlots() {
             <Clock className="h-6 w-6 text-primary" /> Slot Waktu
           </h1>
           <DatasetHeaderInfo datasetId={dsId} datasetName={selected?.name} />
+          <p className="text-xs text-muted-foreground mt-1">Mode baca saja sementara sampai endpoint CRUD slot waktu Laravel dipindahkan.</p>
         </div>
-        <Button onClick={openAdd}><Plus className="h-4 w-4 mr-1" /> Tambah</Button>
       </div>
 
       <div className="relative max-w-xs">
@@ -196,13 +120,12 @@ export default function TimeSlots() {
                 <TableHead>Hari</TableHead>
                 <TableHead>Jam Mulai</TableHead>
                 <TableHead>Jam Selesai</TableHead>
-                <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {totalItems === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                     {search ? "Tidak ada hasil pencarian." : "Belum ada data slot waktu."}
                   </TableCell>
                 </TableRow>
@@ -213,12 +136,6 @@ export default function TimeSlots() {
                   <TableCell className="font-medium">{DAY_LABELS[r.day] ?? r.day}</TableCell>
                   <TableCell className="font-mono">{fmtTime(r.start_time)}</TableCell>
                   <TableCell className="font-mono">{fmtTime(r.end_time)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1 justify-end">
-                      <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDelTarget(r)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -232,73 +149,6 @@ export default function TimeSlots() {
           />
         </div>
       )}
-
-      <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{dialog?.mode === "edit" ? "Edit Slot Waktu" : "Tambah Slot Waktu"}</DialogTitle>
-          </DialogHeader>
-          <form id="slot-form" onSubmit={handleSave} className="space-y-3 py-1">
-            <div className="space-y-1">
-              <Label htmlFor="s-day">Hari *</Label>
-              <Select
-                value={form.day}
-                onValueChange={(v) => setForm((f) => ({ ...f, day: v }))}
-              >
-                <SelectTrigger id="s-day">
-                  <SelectValue placeholder="— Pilih Hari —">
-                    {DAY_LABELS[form.day] ?? form.day}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectPopup>
-                  {DAYS.map(([v, l]) => (
-                    <SelectItem key={v} value={v}>{l}</SelectItem>
-                  ))}
-                </SelectPopup>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="s-start">Jam Mulai *</Label>
-                <input id="s-start" type="time" value={form.start_time} onChange={setField("start_time")} required className={timeInputClass} />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="s-end">Jam Selesai *</Label>
-                <input id="s-end" type="time" value={form.end_time} onChange={setField("end_time")} required className={timeInputClass} />
-              </div>
-            </div>
-          </form>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Batal</DialogClose>
-            <Button type="submit" form="slot-form" disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Simpan"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={delTarget !== null} onOpenChange={(open) => !open && setDelTarget(null)}>
-        <AlertDialogContent size="sm">
-          <AlertDialogHeader>
-            <AlertDialogMedia className="bg-destructive/10 text-destructive dark:bg-destructive/20 dark:text-destructive">
-              <Trash2 className="h-5 w-5" />
-            </AlertDialogMedia>
-            <AlertDialogTitle>Hapus Slot Waktu</AlertDialogTitle>
-            <AlertDialogDescription>
-              Yakin ingin menghapus slot{" "}
-              <span className="font-medium text-foreground">
-                {delTarget ? `${DAY_LABELS[delTarget.day] ?? delTarget.day} ${fmtTime(delTarget.start_time)}–${fmtTime(delTarget.end_time)}` : ""}
-              </span>? Tindakan ini tidak dapat dibatalkan.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel variant="outline">Batal</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={handleDelete} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Hapus"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </main>
   );
 }

@@ -115,7 +115,7 @@ export default function BwmSolverTab({
                 <SelectPopup>
                   {bwmCriteria.map((c) => (
                     <SelectItem key={`best-${c.id}`} value={String(c.id)}>
-                      {c.code} - {formatCriterionLabel(c)}
+                      {formatCriterionLabel(c)}
                     </SelectItem>
                   ))}
                 </SelectPopup>
@@ -137,7 +137,7 @@ export default function BwmSolverTab({
                 <SelectPopup>
                   {bwmCriteria.map((c) => (
                     <SelectItem key={`worst-${c.id}`} value={String(c.id)}>
-                      {c.code} - {formatCriterionLabel(c)}
+                      {formatCriterionLabel(c)}
                     </SelectItem>
                   ))}
                 </SelectPopup>
@@ -161,13 +161,17 @@ export default function BwmSolverTab({
                   <TableHead>Subjek</TableHead>
                   <TableHead className="w-[40%]">Relasi</TableHead>
                   <TableHead>Objek</TableHead>
-                  <TableHead className="w-[140px]">Nilai (1-9)</TableHead>
+                  <TableHead className="w-[88px] border-l bg-muted/40 px-2 text-center">
+                    Nilai (1-9)
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {bwmCriteria.map((c) => (
                   <TableRow key={`bto-${c.id}`}>
-                    <TableCell className="font-medium">{selectedBestName}</TableCell>
+                    <TableCell className="font-medium" title={selectedBestName}>
+                      <p className="truncate">{selectedBestName}</p>
+                    </TableCell>
                     <TableCell className="w-[40%] text-xs text-muted-foreground whitespace-normal break-words">
                       {
                         BWM_SCALE_LABELS[
@@ -180,13 +184,15 @@ export default function BwmSolverTab({
                     </TableCell>
                     <TableCell className="font-medium">
                       <div className="space-y-1">
-                        <p>{c.code} - {formatCriterionLabel(c)}</p>
+                        <p className="truncate" title={formatCriterionLabel(c)}>
+                          {formatCriterionLabel(c)}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {formatCriterionGroup(c)}
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="w-[88px] border-l bg-muted/30 px-2">
                       <input
                         type="number"
                         min={1}
@@ -194,7 +200,7 @@ export default function BwmSolverTab({
                         value={bwmBestToOthers[c.id] ?? 1}
                         disabled={bwmBestId === c.id}
                         onChange={(e) => updateBestToOthers(c.id, e.target.value)}
-                        className="w-full rounded-md border bg-background px-2 py-1 text-sm"
+                        className="mx-auto w-14 rounded-md border bg-background px-1 py-1 text-center text-sm"
                       />
                     </TableCell>
                   </TableRow>
@@ -219,18 +225,19 @@ export default function BwmSolverTab({
                   <TableHead>Subjek</TableHead>
                   <TableHead className="w-[40%]">Relasi</TableHead>
                   <TableHead>Objek</TableHead>
-                  <TableHead className="w-[140px]">Nilai (1-9)</TableHead>
+                  <TableHead className="w-[88px] border-l bg-muted/40 px-2 text-center">
+                    Nilai (1-9)
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {bwmCriteria.map((c) => (
                   <TableRow key={`otw-${c.id}`}>
                     <TableCell className="font-medium">
-                      {formatCriterionLabel(c)}
-                    </TableCell>
-                    <TableCell className="font-medium">
                       <div className="space-y-1">
-                        <p>{c.code} - {formatCriterionLabel(c)}</p>
+                        <p className="truncate" title={formatCriterionLabel(c)}>
+                          {formatCriterionLabel(c)}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {formatCriterionGroup(c)}
                         </p>
@@ -246,8 +253,10 @@ export default function BwmSolverTab({
                         ]
                       }
                     </TableCell>
-                    <TableCell className="font-medium">{selectedWorstName}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium" title={selectedWorstName}>
+                      <p className="truncate">{selectedWorstName}</p>
+                    </TableCell>
+                    <TableCell className="w-[88px] border-l bg-muted/30 px-2">
                       <input
                         type="number"
                         min={1}
@@ -255,7 +264,7 @@ export default function BwmSolverTab({
                         value={bwmOthersToWorst[c.id] ?? 1}
                         disabled={bwmWorstId === c.id}
                         onChange={(e) => updateOthersToWorst(c.id, e.target.value)}
-                        className="w-full rounded-md border bg-background px-2 py-1 text-sm"
+                        className="mx-auto w-14 rounded-md border bg-background px-1 py-1 text-center text-sm"
                       />
                     </TableCell>
                   </TableRow>
@@ -309,7 +318,7 @@ export default function BwmSolverTab({
                         <TableCell className="font-medium">
                           <div className="space-y-1">
                             <p>
-                              {criteriaById.get(w.criterion_id)?.code} - {formatCriterionLabel(criteriaById.get(w.criterion_id))}
+                              {formatCriterionLabel(criteriaById.get(w.criterion_id))}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {formatCriterionGroup(criteriaById.get(w.criterion_id))}

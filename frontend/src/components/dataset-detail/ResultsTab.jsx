@@ -405,7 +405,7 @@ export default function ResultsTab({ datasetId, tree, bwmCriteria }) {
             </div>
           )}
 
-          <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="">
             <Card>
               <CardHeader>
                 <CardTitle>Penjadwalan Per Assignment</CardTitle>
@@ -461,7 +461,7 @@ export default function ResultsTab({ datasetId, tree, bwmCriteria }) {
               </CardContent>
             </Card>
 
-            <div className="space-y-4">
+            {/* <div className="space-y-4">
               <Card>
                 <CardHeader>
                   <CardTitle>Bobot Soft Constraint</CardTitle>
@@ -529,7 +529,7 @@ export default function ResultsTab({ datasetId, tree, bwmCriteria }) {
                   ))}
                 </CardContent>
               </Card>
-            </div>
+            </div> */}
           </div>
 
           <Card>

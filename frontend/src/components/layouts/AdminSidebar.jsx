@@ -13,6 +13,7 @@ import {
   Briefcase,
   Users,
   Zap,
+  Eye,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -88,86 +89,17 @@ function NavLinks({ collapsed, closeMenu }) {
   };
 
   const handleGenerate = async () => {
+    window.alert("Fitur generate timetable belum tersedia di backend Laravel saat ini.");
+  };
+
+  const handleView = () => {
     if (!generateDatasetId) {
       window.alert("Pilih dataset terlebih dahulu.");
       return;
     }
 
-    if (!token) {
-      window.alert("User belum login.");
-      return;
-    }
-
-    setGenerating(true);
-    try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const treeRes = await fetch(`/api/datasets/${generateDatasetId}/tree`, { headers });
-      if (!treeRes.ok) {
-        const body = await treeRes.json().catch(() => ({}));
-        throw new Error(body.detail ?? "Gagal memuat data dataset");
-      }
-
-      const tree = await treeRes.json();
-      const classGroup = tree?.classes?.[0];
-      const courses = tree?.courses ?? [];
-      const lecturers = tree?.lecturers ?? [];
-
-      if (!classGroup || courses.length === 0 || lecturers.length === 0) {
-        throw new Error("Dataset harus memiliki kelas, mata kuliah, dan dosen terlebih dahulu.");
-      }
-
-      let requestPayload = null;
-      for (const lecturer of lecturers) {
-        const constraintsRes = await fetch(
-          `/api/datasets/${generateDatasetId}/lecturers/${lecturer.id}/constraints`,
-          { headers },
-        );
-        if (!constraintsRes.ok) continue;
-
-        const constraints = await constraintsRes.json();
-        const allowedCourseIds = new Set((constraints.allowed_course_ids ?? []).map(String));
-        const course = courses.find((row) => allowedCourseIds.has(String(row.id)));
-
-        if (course) {
-          requestPayload = {
-            teaching_requests: [
-              {
-                class_id: classGroup.id,
-                course_id: course.id,
-                lecturer_id: lecturer.id,
-                duration_slots: 1,
-              },
-            ],
-            daily_session_limit: 2,
-          };
-          break;
-        }
-      }
-
-      if (!requestPayload) {
-        throw new Error("Tidak ada kombinasi dosen dan mata kuliah yang valid untuk generate.");
-      }
-
-      const generateRes = await fetch(`/api/datasets/${generateDatasetId}/timetable-runs/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...headers,
-        },
-        body: JSON.stringify(requestPayload),
-      });
-
-      const responseBody = await generateRes.json().catch(() => ({}));
-      if (!generateRes.ok) {
-        throw new Error(responseBody.detail ?? "Gagal menjalankan generate");
-      }
-
-      window.alert(`Generate berhasil dijalankan. Run ID: ${responseBody.id ?? "-"}`);
-    } catch (error) {
-      window.alert(error.message ?? "Gagal menjalankan generate");
-    } finally {
-      setGenerating(false);
-    }
+    navigate(`/datasets/${generateDatasetId}`);
+    closeMenu();
   };
 
   return (
@@ -237,6 +169,16 @@ function NavLinks({ collapsed, closeMenu }) {
               type="button"
               variant="outline"
               size="icon-sm"
+              onClick={handleView}
+              disabled={!generateDatasetId}
+              title="Lihat detail hasil solver"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
               onClick={handleGenerate}
               disabled={!generateDatasetId || generating}
               title="Generate timetable"
@@ -274,12 +216,22 @@ function NavLinks({ collapsed, closeMenu }) {
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="icon-sm"
+              onClick={handleView}
+              disabled={!generateDatasetId}
+              title="Lihat detail hasil solver"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
               onClick={handleGenerate}
               disabled={!generateDatasetId || generating}
+              title="Generate timetable"
             >
               <Zap className="h-4 w-4" />
-              <span>Generate</span>
             </Button>
           </div>
         </div>
