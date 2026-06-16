@@ -37,7 +37,7 @@ class DatasetController extends Controller
                     ->whereColumn('lecturers.dataset_id', 'datasets.id')
                     ->where('lecturers.employee_id', $currentUser->employeeProfile->id);
             })
-            ->orderByDesc('updated_at')
+            ->orderByDesc('created_at')
             ->get();
 
         return response()->json(DatasetResource::collection($items)->resolve());
@@ -57,7 +57,7 @@ class DatasetController extends Controller
 
         $query = Dataset::query()
             ->where('user_id', $currentUser->id)
-            ->orderByDesc('updated_at');
+            ->orderByDesc('created_at');
 
         if ($keyword !== '') {
             $query->where(function (Builder $subQuery) use ($keyword): void {
@@ -90,7 +90,7 @@ class DatasetController extends Controller
     {
         $items = Dataset::query()
             ->where('visibility', Dataset::VISIBILITY_PUBLIC)
-            ->orderByDesc('updated_at')
+            ->orderByDesc('created_at')
             ->get();
 
         return response()->json(DatasetResource::collection($items)->resolve());
@@ -151,7 +151,7 @@ class DatasetController extends Controller
 
         $rooms = Room::query()
             ->where('dataset_id', $dataset->id)
-            ->orderBy('code')
+            ->orderByDesc('created_at')
             ->get()
             ->map(fn (Room $room): array => [
                 'id' => $room->id,
@@ -163,7 +163,7 @@ class DatasetController extends Controller
         $lecturers = Lecturer::query()
             ->with('employee')
             ->where('dataset_id', $dataset->id)
-            ->orderBy('code')
+            ->orderByDesc('created_at')
             ->get()
             ->map(fn (Lecturer $lecturer): array => [
                 'id' => $lecturer->id,
@@ -175,7 +175,7 @@ class DatasetController extends Controller
         $courses = Course::query()
             ->with('major')
             ->where('dataset_id', $dataset->id)
-            ->orderBy('code')
+            ->orderByDesc('created_at')
             ->get()
             ->map(fn (Course $course): array => [
                 'id' => $course->id,
@@ -187,9 +187,7 @@ class DatasetController extends Controller
 
         $timeSlots = TimeSlot::query()
             ->where('dataset_id', $dataset->id)
-            ->orderBy('day')
-            ->orderBy('start_time')
-            ->orderBy('code')
+            ->orderByDesc('created_at')
             ->get()
             ->map(fn (TimeSlot $timeSlot): array => [
                 'id' => $timeSlot->id,
@@ -202,7 +200,7 @@ class DatasetController extends Controller
         $classes = ClassModel::query()
             ->with('major')
             ->where('dataset_id', $dataset->id)
-            ->orderBy('code')
+            ->orderByDesc('created_at')
             ->get()
             ->map(fn (ClassModel $classModel): array => [
                 'id' => $classModel->id,
