@@ -37,11 +37,11 @@ const adminLinks = [
 ];
 
 const masterLinks = [
-  { path: "rooms", label: "Ruangan" },
-  { path: "lecturers", label: "Dosen" },
-  { path: "courses", label: "Mata Kuliah" },
-  { path: "time-slots", label: "Slot Waktu" },
-  { path: "classes", label: "Kelas" },
+  { path: "rooms", label: "Ruangan", countKey: "rooms_count" },
+  { path: "lecturers", label: "Dosen", countKey: "lecturers_count" },
+  { path: "courses", label: "Mata Kuliah", countKey: "courses_count" },
+  { path: "time-slots", label: "Slot Waktu", countKey: "time_slots_count" },
+  { path: "classes", label: "Kelas", countKey: "classes_count" },
 ];
 
 function DatasetNavItem({ dataset, pathname, selectDataset }) {
@@ -65,8 +65,9 @@ function DatasetNavItem({ dataset, pathname, selectDataset }) {
 
         <CollapsibleContent>
           <SidebarMenuSub>
-            {masterLinks.map(({ path, label }) => {
+            {masterLinks.map(({ path, label, countKey }) => {
               const to = `/dataset/${dataset.id}/${path}`;
+              const count = dataset[countKey] ?? 0;
               return (
                 <SidebarMenuSubItem key={path}>
                   <SidebarMenuSubButton
@@ -80,6 +81,9 @@ function DatasetNavItem({ dataset, pathname, selectDataset }) {
                     className="text-muted-foreground hover:text-sidebar-foreground data-active:text-sidebar-accent-foreground"
                   >
                     <span>{label}</span>
+                    <span className="ml-auto shrink-0 rounded-md bg-sidebar-accent px-1.5 py-0.5 text-xs font-medium tabular-nums text-sidebar-foreground">
+                      {count}
+                    </span>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
               );

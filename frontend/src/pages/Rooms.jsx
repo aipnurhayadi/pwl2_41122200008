@@ -47,7 +47,7 @@ function roomTypeVariant(t) {
 
 export default function Rooms() {
   const { datasetId: paramId } = useParams();
-  const { selected } = useDataset();
+  const { selected, refetch } = useDataset();
   const { token } = useAuth();
   const dsId = paramId ?? selected?.id;
 
@@ -136,6 +136,7 @@ export default function Rooms() {
     }
     setDialog(null);
     toast.success(isEdit ? "Ruangan berhasil diperbarui" : "Ruangan berhasil ditambahkan");
+    if (!isEdit) await refetch();
     load();
   };
 
@@ -154,6 +155,7 @@ export default function Rooms() {
     }
     toast.success("Ruangan berhasil dihapus");
     setDelTarget(null);
+    await refetch();
     load();
   };
 

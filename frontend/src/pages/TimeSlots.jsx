@@ -40,7 +40,7 @@ const timeInputClass = "h-8 w-full rounded-lg border border-input bg-transparent
 
 export default function TimeSlots() {
   const { datasetId: paramId } = useParams();
-  const { selected } = useDataset();
+  const { selected, refetch } = useDataset();
   const { token } = useAuth();
   const dsId = paramId ?? selected?.id;
 
@@ -125,6 +125,7 @@ export default function TimeSlots() {
     }
     setDialog(null);
     toast.success(isEdit ? "Slot waktu berhasil diperbarui" : "Slot waktu berhasil ditambahkan");
+    if (!isEdit) await refetch();
     load();
   };
 
@@ -143,6 +144,7 @@ export default function TimeSlots() {
     }
     toast.success("Slot waktu berhasil dihapus");
     setDelTarget(null);
+    await refetch();
     load();
   };
 

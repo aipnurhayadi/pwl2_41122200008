@@ -32,7 +32,7 @@ const PAGE_SIZE = 10;
 
 export default function Lecturers() {
   const { datasetId: paramId } = useParams();
-  const { selected } = useDataset();
+  const { selected, refetch } = useDataset();
   const { token, user } = useAuth();
   const dsId = paramId ?? selected?.id;
   const isLecturerRole = user?.role === "LECTURER";
@@ -142,6 +142,7 @@ export default function Lecturers() {
     }
     setDialog(null);
     toast.success(isEdit ? "Assignment berhasil diperbarui" : "Assignment berhasil ditambahkan");
+    if (!isEdit) await refetch();
     loadAssignments();
   };
 
@@ -160,6 +161,7 @@ export default function Lecturers() {
     }
     toast.success("Assignment berhasil dihapus");
     setDelTarget(null);
+    await refetch();
     loadAssignments();
   };
 

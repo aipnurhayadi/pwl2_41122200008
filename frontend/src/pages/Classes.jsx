@@ -34,7 +34,7 @@ const PAGE_SIZE = 10;
 
 export default function Classes() {
   const { datasetId: paramId } = useParams();
-  const { selected } = useDataset();
+  const { selected, refetch } = useDataset();
   const { token } = useAuth();
   const dsId = paramId ?? selected?.id;
 
@@ -126,6 +126,7 @@ export default function Classes() {
     }
     setDialog(null);
     toast.success(isEdit ? "Kelas berhasil diperbarui" : "Kelas berhasil ditambahkan");
+    if (!isEdit) await refetch();
     load();
   };
 
@@ -144,6 +145,7 @@ export default function Classes() {
     }
     toast.success("Kelas berhasil dihapus");
     setDelTarget(null);
+    await refetch();
     load();
   };
 

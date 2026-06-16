@@ -34,7 +34,7 @@ const PAGE_SIZE = 10;
 
 export default function Courses() {
   const { datasetId: paramId } = useParams();
-  const { selected } = useDataset();
+  const { selected, refetch } = useDataset();
   const { token } = useAuth();
   const dsId = paramId ?? selected?.id;
 
@@ -124,6 +124,7 @@ export default function Courses() {
     }
     setDialog(null);
     toast.success(isEdit ? "Mata kuliah berhasil diperbarui" : "Mata kuliah berhasil ditambahkan");
+    if (!isEdit) await refetch();
     load();
   };
 
@@ -142,6 +143,7 @@ export default function Courses() {
     }
     toast.success("Mata kuliah berhasil dihapus");
     setDelTarget(null);
+    await refetch();
     load();
   };
 

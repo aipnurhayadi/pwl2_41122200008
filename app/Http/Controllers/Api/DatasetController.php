@@ -21,6 +21,15 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class DatasetController extends Controller
 {
+    /** @var list<string> */
+    private const DATASET_COUNT_RELATIONS = [
+        'rooms',
+        'lecturers',
+        'courses',
+        'timeSlots',
+        'classes',
+    ];
+
     public function my(Request $request): JsonResponse
     {
         /** @var User $currentUser */
@@ -31,6 +40,7 @@ class DatasetController extends Controller
         }
 
         $items = Dataset::query()
+            ->withCount(self::DATASET_COUNT_RELATIONS)
             ->whereExists(function ($query) use ($currentUser): void {
                 $query->select(DB::raw('1'))
                     ->from('lecturers')
@@ -56,6 +66,7 @@ class DatasetController extends Controller
         $keyword = trim((string) $request->query('q', ''));
 
         $query = Dataset::query()
+            ->withCount(self::DATASET_COUNT_RELATIONS)
             ->where('user_id', $currentUser->id)
             ->orderByDesc('created_at');
 
@@ -89,6 +100,7 @@ class DatasetController extends Controller
     public function public(): JsonResponse
     {
         $items = Dataset::query()
+            ->withCount(self::DATASET_COUNT_RELATIONS)
             ->where('visibility', Dataset::VISIBILITY_PUBLIC)
             ->orderByDesc('created_at')
             ->get();
@@ -114,6 +126,8 @@ class DatasetController extends Controller
             'visibility' => $payload['visibility'] ?? Dataset::VISIBILITY_PRIVATE,
         ]);
 
+        $dataset->loadCount(self::DATASET_COUNT_RELATIONS);
+
         return response()->json((new DatasetResource($dataset))->resolve(), 201);
     }
 
@@ -121,7 +135,9 @@ class DatasetController extends Controller
     {
         /** @var User $currentUser */
         $currentUser = $request->user();
-        $dataset = $this->accessibleDatasetQuery($datasetId, $currentUser)->first();
+        $dataset = $this->accessibleDatasetQuery($datasetId, $currentUser)
+            ->withCount(self::DATASET_COUNT_RELATIONS)
+            ->first();
 
         if (! $dataset) {
             return $this->notFound('Dataset not found');
@@ -238,6 +254,7 @@ class DatasetController extends Controller
 
         $dataset->fill($request->validated());
         $dataset->save();
+        $dataset->loadCount(self::DATASET_COUNT_RELATIONS);
 
         return response()->json((new DatasetResource($dataset))->resolve());
     }
