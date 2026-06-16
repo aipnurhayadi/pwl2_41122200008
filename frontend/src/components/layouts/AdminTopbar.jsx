@@ -1,12 +1,9 @@
-import EmployeeHeaderActions from "@/components/layouts/EmployeeHeaderActions";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export default function AdminTopbar() {
   return (
-    <header className="hidden md:flex sticky top-0 z-30 h-14 items-center justify-between border-b bg-background/95 backdrop-blur px-4">
-      <div />
-      <div className="flex items-center gap-2 shrink-0">
-        <EmployeeHeaderActions />
-      </div>
+    <header className="flex h-14 shrink-0 items-center gap-2 bg-background/95 px-4 backdrop-blur">
+      <SidebarTrigger className="-ml-1" />
     </header>
   );
 }

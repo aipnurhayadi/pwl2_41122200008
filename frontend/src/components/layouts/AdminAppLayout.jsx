@@ -1,17 +1,21 @@
-import AdminSidebar from "@/components/layouts/AdminSidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import AppSidebar from "@/components/layouts/AppSidebar";
 import AdminTopbar from "@/components/layouts/AdminTopbar";
 import { DatasetProvider } from "@/context/DatasetContext";
 
 export default function AdminAppLayout({ children }) {
   return (
     <DatasetProvider>
-      <div className="flex h-screen bg-background text-foreground overflow-hidden">
-        <AdminSidebar />
-        <div className="flex flex-1 min-w-0 flex-col">
-          <AdminTopbar />
-          <main className="flex-1 overflow-y-auto">{children}</main>
-        </div>
-      </div>
+      <TooltipProvider>
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset>
+            <AdminTopbar />
+            <div className="flex-1 overflow-y-auto">{children}</div>
+          </SidebarInset>
+        </SidebarProvider>
+      </TooltipProvider>
     </DatasetProvider>
   );
 }

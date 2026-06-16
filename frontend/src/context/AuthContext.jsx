@@ -20,10 +20,22 @@ function normalizeToken(value) {
   return trimmed;
 }
 
+function normalizeUser(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  if (payload.data && typeof payload.data === "object") return payload.data;
+  return payload;
+}
+
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => normalizeToken(localStorage.getItem("access_token")));
   const [refreshToken, setRefreshToken] = useState(() => normalizeToken(localStorage.getItem("refresh_token")));
   const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    if (user?.data && typeof user.data === "object") {
+      setUser(normalizeUser(user));
+    }
+  }, [user]);
 
   useEffect(() => {
     if (token && !user) {
@@ -31,7 +43,7 @@ export function AuthProvider({ children }) {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then(setUser)
+        .then((payload) => setUser(normalizeUser(payload)))
         .catch(() => {
           localStorage.removeItem("access_token");
           setToken(null);
@@ -67,7 +79,7 @@ export function AuthProvider({ children }) {
     const me = await fetch("/api/auth/me", {
       headers: { Authorization: `Bearer ${nextToken}` },
     });
-    if (me.ok) setUser(await me.json());
+    if (me.ok) setUser(normalizeUser(await me.json()));
     return null;
   };
 
