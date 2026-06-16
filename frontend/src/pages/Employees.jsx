@@ -49,6 +49,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { normalizePaginatedResponse } from "@/lib/paginated";
+import { getRowNumber } from "@/lib/table";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { toast } from "sonner";
 
@@ -255,6 +256,7 @@ export default function Employees() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">No.</TableHead>
                 <TableHead>Kode</TableHead>
                 <TableHead>Nama</TableHead>
                 <TableHead>Email User</TableHead>
@@ -267,13 +269,14 @@ export default function Employees() {
             <TableBody>
               {totalItems === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     {search ? "Tidak ada hasil pencarian." : "Belum ada employee."}
                   </TableCell>
                 </TableRow>
               )}
-              {rows.map((row) => (
+              {rows.map((row, index) => (
                 <TableRow key={row.id}>
+                  <TableCell>{getRowNumber(page, PAGE_SIZE, index)}</TableCell>
                   <TableCell className="font-mono font-medium">{row.employee_code}</TableCell>
                   <TableCell>{row.name}</TableCell>
                   <TableCell className="text-muted-foreground">{row.user_email || "-"}</TableCell>

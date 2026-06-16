@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  BookOpen,
   Database,
-  Building2,
-  Clock,
-  GraduationCap,
   Loader2,
-  Users,
-  ChevronRight,
   ArrowLeft,
   CalendarClock,
 } from "lucide-react";
@@ -25,6 +19,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import DataTablePagination from "@/components/DataTablePagination";
+import { getRowNumber } from "@/lib/table";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -33,6 +28,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import EmployeeAppLayout from "@/components/layouts/EmployeeAppLayout";
+import TimetableAnalyticsSection from "@/components/dataset-detail/TimetableAnalyticsSection";
 
 const PAGE_SIZE = 8;
 
@@ -52,11 +48,11 @@ function fmtTime(value) {
 }
 
 const MODAL_DEFS = {
-  rooms: { title: "Ruangan", columns: ["Kode", "Gedung", "Tipe"] },
-  lecturers: { title: "Dosen", columns: ["Kode", "Kode Pegawai", "Nama"] },
-  courses: { title: "Mata Kuliah", columns: ["Kode", "Nama", "SKS"] },
-  time_slots: { title: "Slot Waktu", columns: ["Kode", "Hari", "Mulai", "Selesai"] },
-  classes: { title: "Kelas", columns: ["Kode", "Nama"] },
+  rooms: { title: "Ruangan", columns: ["No.", "Kode", "Gedung", "Tipe"] },
+  lecturers: { title: "Dosen", columns: ["No.", "Kode", "Kode Pegawai", "Nama"] },
+  courses: { title: "Mata Kuliah", columns: ["No.", "Kode", "Nama", "SKS"] },
+  time_slots: { title: "Slot Waktu", columns: ["No.", "Kode", "Hari", "Mulai", "Selesai"] },
+  classes: { title: "Kelas", columns: ["No.", "Kode", "Nama"] },
 };
 
 function getModalRows(key, tree) {
@@ -84,92 +80,6 @@ function getModalRows(key, tree) {
     default:
       return [];
   }
-}
-
-function TreeSection({
-  icon: Icon,
-  title,
-  count,
-  children,
-  defaultOpen = true,
-}) {
-  return (
-    <details open={defaultOpen} className="rounded-lg border bg-card">
-      <summary className="cursor-pointer list-none select-none px-4 py-3 hover:bg-accent/40 transition-colors">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 font-medium">
-            <Icon className="h-4 w-4 text-primary" />
-            <span>{title}</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{count} data</span>
-            <ChevronRight className="h-4 w-4" />
-          </div>
-        </div>
-      </summary>
-      <div className="border-t px-4 py-3">{children}</div>
-    </details>
-  );
-}
-
-function TreeTableSection({
-  icon,
-  title,
-  rows,
-  emptyMessage,
-  itemLabel,
-  columns,
-  renderRow,
-}) {
-  const [page, setPage] = useState(1);
-  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const paginated = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  useEffect(() => {
-    setPage(1);
-  }, [rows]);
-
-  useEffect(() => {
-    if (page > totalPages) setPage(totalPages);
-  }, [page, totalPages]);
-
-  return (
-    <TreeSection icon={icon} title={title} count={rows.length}>
-      <div className="rounded-md border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {columns.map((col) => (
-                <TableHead key={col.key} className={col.className}>
-                  {col.label}
-                </TableHead>
-              ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="text-center text-muted-foreground py-8"
-                >
-                  {emptyMessage}
-                </TableCell>
-              </TableRow>
-            )}
-            {paginated.map(renderRow)}
-          </TableBody>
-        </Table>
-        <DataTablePagination
-          page={page}
-          setPage={setPage}
-          totalItems={rows.length}
-          pageSize={PAGE_SIZE}
-          itemLabel={itemLabel}
-        />
-      </div>
-    </TreeSection>
-  );
 }
 
 export default function DatasetDetail() {
@@ -353,107 +263,7 @@ export default function DatasetDetail() {
         ))}
       </section>
 
-      <section className="space-y-4">
-        <TreeTableSection
-          icon={Building2}
-          title="Ruangan"
-          rows={tree.rooms}
-          emptyMessage="Belum ada data ruangan."
-          itemLabel="ruangan"
-          columns={[
-            { key: "code", label: "Kode" },
-            { key: "building", label: "Gedung" },
-            { key: "type", label: "Tipe" },
-          ]}
-          renderRow={(room) => (
-            <TableRow key={room.id}>
-              <TableCell>{room.code}</TableCell>
-              <TableCell>{room.building_name}</TableCell>
-              <TableCell>{room.room_type ?? "-"}</TableCell>
-            </TableRow>
-          )}
-        />
-
-        <TreeTableSection
-          icon={GraduationCap}
-          title="Dosen"
-          rows={tree.lecturers}
-          emptyMessage="Belum ada data dosen."
-          itemLabel="dosen"
-          columns={[
-            { key: "code", label: "Kode" },
-            { key: "employee", label: "Kode Pegawai" },
-            { key: "name", label: "Nama" },
-          ]}
-          renderRow={(lecturer) => (
-            <TableRow key={lecturer.id}>
-              <TableCell>{lecturer.code}</TableCell>
-              <TableCell>{lecturer.employee_code ?? "-"}</TableCell>
-              <TableCell>{lecturer.name ?? "-"}</TableCell>
-            </TableRow>
-          )}
-        />
-
-        <TreeTableSection
-          icon={BookOpen}
-          title="Mata Kuliah"
-          rows={tree.courses}
-          emptyMessage="Belum ada data mata kuliah."
-          itemLabel="mata kuliah"
-          columns={[
-            { key: "code", label: "Kode" },
-            { key: "name", label: "Nama" },
-            { key: "credits", label: "SKS" },
-          ]}
-          renderRow={(course) => (
-            <TableRow key={course.id}>
-              <TableCell>{course.code}</TableCell>
-              <TableCell>{course.name}</TableCell>
-              <TableCell>{course.credits}</TableCell>
-            </TableRow>
-          )}
-        />
-
-        <TreeTableSection
-          icon={Clock}
-          title="Slot Waktu"
-          rows={tree.time_slots}
-          emptyMessage="Belum ada data slot waktu."
-          itemLabel="slot waktu"
-          columns={[
-            { key: "code", label: "Kode" },
-            { key: "day", label: "Hari" },
-            { key: "start", label: "Mulai" },
-            { key: "end", label: "Selesai" },
-          ]}
-          renderRow={(slot) => (
-            <TableRow key={slot.id}>
-              <TableCell>{slot.code}</TableCell>
-              <TableCell>{DAY_LABELS[slot.day] ?? slot.day}</TableCell>
-              <TableCell>{fmtTime(slot.start_time)}</TableCell>
-              <TableCell>{fmtTime(slot.end_time)}</TableCell>
-            </TableRow>
-          )}
-        />
-
-        <TreeTableSection
-          icon={Users}
-          title="Kelas"
-          rows={tree.classes}
-          emptyMessage="Belum ada data kelas."
-          itemLabel="kelas"
-          columns={[
-            { key: "code", label: "Kode" },
-            { key: "name", label: "Nama" },
-          ]}
-          renderRow={(classItem) => (
-            <TableRow key={classItem.id}>
-              <TableCell>{classItem.code}</TableCell>
-              <TableCell>{classItem.name}</TableCell>
-            </TableRow>
-          )}
-        />
-      </section>
+      <TimetableAnalyticsSection dataset={tree.dataset} tree={tree} />
 
       <Dialog open={activeModal !== null} onOpenChange={(open) => !open && setActiveModal(null)}>
         <DialogContent className="sm:max-w-3xl">
@@ -477,8 +287,11 @@ export default function DatasetDetail() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  pagedModalRows.map((cells, i) => (
-                    <TableRow key={i}>
+                  pagedModalRows.map((cells, index) => (
+                    <TableRow key={index}>
+                      <TableCell>
+                        {getRowNumber(modalPage, PAGE_SIZE, index)}
+                      </TableCell>
                       {cells.map((cell, j) => (
                         <TableCell key={j}>{cell}</TableCell>
                       ))}

@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/context/AuthContext";
 import { normalizePaginatedResponse } from "@/lib/paginated";
+import { getRowNumber } from "@/lib/table";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { toast } from "sonner";
 
@@ -231,6 +232,7 @@ export default function Datasets() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">No.</TableHead>
                 <TableHead>Kode</TableHead>
                 <TableHead>Nama</TableHead>
                 <TableHead>Deskripsi</TableHead>
@@ -241,13 +243,14 @@ export default function Datasets() {
             <TableBody>
               {totalItems === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     {search ? "Tidak ada hasil pencarian." : "Belum ada dataset."}
                   </TableCell>
                 </TableRow>
               )}
-              {rows.map((row) => (
+              {rows.map((row, index) => (
                 <TableRow key={row.id}>
+                  <TableCell>{getRowNumber(page, PAGE_SIZE, index)}</TableCell>
                   <TableCell>
                     <Badge variant="outline">{row.code}</Badge>
                   </TableCell>

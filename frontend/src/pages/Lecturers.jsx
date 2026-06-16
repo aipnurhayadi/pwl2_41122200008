@@ -23,6 +23,7 @@ import {
 import DatasetHeaderInfo from "@/components/DatasetHeaderInfo";
 import DataTablePagination from "@/components/DataTablePagination";
 import { normalizePaginatedResponse } from "@/lib/paginated";
+import { getRowNumber } from "@/lib/table";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { toast } from "sonner";
 
@@ -210,6 +211,7 @@ export default function Lecturers() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">No.</TableHead>
                 <TableHead>Kode</TableHead>
                 <TableHead>Kode Karyawan</TableHead>
                 <TableHead>Nama</TableHead>
@@ -220,13 +222,14 @@ export default function Lecturers() {
             <TableBody>
               {totalItems === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     {search ? "Tidak ada hasil pencarian." : "Belum ada assignment karyawan."}
                   </TableCell>
                 </TableRow>
               )}
-              {rows.map((r) => (
+              {rows.map((r, index) => (
                 <TableRow key={r.id}>
+                  <TableCell>{getRowNumber(page, PAGE_SIZE, index)}</TableCell>
                   <TableCell className="font-mono font-medium">{r.code}</TableCell>
                   <TableCell className="font-mono">{r.employee_code}</TableCell>
                   <TableCell>{r.name}</TableCell>

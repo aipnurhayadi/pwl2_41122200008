@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useDataset } from "@/context/DatasetContext";
 import SidebarUserNav from "@/components/layouts/SidebarUserNav";
+import SidebarTimetableProgress from "@/components/layouts/SidebarTimetableProgress";
 
 const adminLinks = [
   { path: "/home", label: "Home", icon: Home },
@@ -178,6 +179,7 @@ export default function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
+      <SidebarTimetableProgress />
       <SidebarUserNav />
       <SidebarRail />
     </Sidebar>
