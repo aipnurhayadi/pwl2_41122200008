@@ -21,6 +21,7 @@ class Dataset extends Model
         'name',
         'description',
         'visibility',
+        'color',
     ];
 
     protected $casts = [

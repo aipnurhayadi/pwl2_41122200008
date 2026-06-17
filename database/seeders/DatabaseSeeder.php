@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
     private const DEFAULT_ADMIN_NAME = 'Admin';
     private const DEFAULT_DATASET_NAME = 'Dataset Seed Default';
     private const DEFAULT_DATASET_DESCRIPTION = 'Auto-created for seed scripts';
+    private const DEFAULT_DATASET_COLOR = '#6366F1';
     private const DEFAULT_MAJOR_NAME = 'Sistem Informasi';
     private const DEFAULT_ROOM_CAPACITY = 40;
     private const BREAK_START = '11:40';
@@ -412,11 +413,17 @@ class DatabaseSeeder extends Seeder
                 'code' => 'TMP',
                 'description' => $datasetDescription,
                 'visibility' => Dataset::VISIBILITY_PRIVATE,
+                'color' => self::DEFAULT_DATASET_COLOR,
             ]
         );
 
         if ($dataset->code === 'TMP' || $dataset->code === '') {
             $dataset->code = sprintf('DS%03d', $dataset->id);
+            $dataset->save();
+        }
+
+        if (! $dataset->color) {
+            $dataset->color = self::DEFAULT_DATASET_COLOR;
             $dataset->save();
         }
 

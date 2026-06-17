@@ -18,6 +18,7 @@ class UpdateDatasetRequest extends FormRequest
             'name' => ['sometimes', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
             'visibility' => ['sometimes', Rule::in(['PUBLIC', 'PRIVATE'])],
+            'color' => ['sometimes', 'nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ];
     }
 }

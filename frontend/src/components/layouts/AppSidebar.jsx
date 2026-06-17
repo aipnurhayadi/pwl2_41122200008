@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   ChevronDown,
@@ -29,6 +29,9 @@ import {
 import { useDataset } from "@/context/DatasetContext";
 import SidebarUserNav from "@/components/layouts/SidebarUserNav";
 import SidebarTimetableProgress from "@/components/layouts/SidebarTimetableProgress";
+import { cn } from "@/lib/utils";
+
+const DEFAULT_DATASET_COLOR = "#6366F1";
 
 const adminLinks = [
   { path: "/home", label: "Home", icon: Home },
@@ -45,62 +48,68 @@ const masterLinks = [
 ];
 
 function DatasetNavItem({ dataset, pathname, selectDataset }) {
+  const color = dataset.color || DEFAULT_DATASET_COLOR;
   const isOnMasterData = pathname.startsWith(`/dataset/${dataset.id}/`);
   const isOnDetail = pathname === `/datasets/${dataset.id}`;
   const isExpanded = isOnMasterData || isOnDetail;
+  const [open, setOpen] = useState(isExpanded);
+
+  useEffect(() => {
+    if (isExpanded) {
+      setOpen(true);
+    }
+  }, [isExpanded]);
 
   return (
-    <Collapsible
-      defaultOpen={isExpanded}
-      className="group/dataset"
-    >
-      <SidebarMenuItem>
-        <CollapsibleTrigger
-          render={<SidebarMenuButton isActive={isOnDetail} tooltip={dataset.name} />}
-        >
-          <Database />
-          <span>{dataset.name}</span>
-          <ChevronDown className="ml-auto transition-transform group-data-[state=open]/dataset:rotate-180" />
-        </CollapsibleTrigger>
+    <div className="mb-1">
+      <Collapsible open={open} onOpenChange={setOpen}>
+        <SidebarMenuItem>
+          <CollapsibleTrigger
+            render={<SidebarMenuButton isActive={isOnDetail} tooltip={dataset.name} />}
+          >
+            <span
+              className="size-4 shrink-0 rounded"
+              style={{ backgroundColor: color }}
+            />
+            <span>{dataset.name}</span>
+            <ChevronDown
+              className={cn(
+                "ml-auto transition-transform duration-200",
+                open && "rotate-180",
+              )}
+            />
+          </CollapsibleTrigger>
 
-        <CollapsibleContent>
-          <SidebarMenuSub>
-            {masterLinks.map(({ path, label, countKey }) => {
-              const to = `/dataset/${dataset.id}/${path}`;
-              const count = dataset[countKey] ?? 0;
-              return (
-                <SidebarMenuSubItem key={path}>
-                  <SidebarMenuSubButton
-                    render={
-                      <Link
-                        to={to}
-                        onClick={() => selectDataset(dataset)}
-                      />
-                    }
-                    isActive={pathname === to}
-                    className="text-muted-foreground hover:text-sidebar-foreground data-active:text-sidebar-accent-foreground"
-                  >
-                    <span>{label}</span>
-                    <span className="ml-auto shrink-0 rounded-md bg-sidebar-accent px-1.5 py-0.5 text-xs font-medium tabular-nums text-sidebar-foreground">
-                      {count}
-                    </span>
-                  </SidebarMenuSubButton>
-                </SidebarMenuSubItem>
-              );
-            })}
-            <SidebarMenuSubItem>
-              <SidebarMenuSubButton
-                render={<Link to={`/datasets/${dataset.id}`} />}
-                isActive={pathname === `/datasets/${dataset.id}`}
-                className="text-muted-foreground hover:text-sidebar-foreground data-active:text-sidebar-accent-foreground"
-              >
-                <span>Detail Dataset</span>
-              </SidebarMenuSubButton>
-            </SidebarMenuSubItem>
-          </SidebarMenuSub>
-        </CollapsibleContent>
-      </SidebarMenuItem>
-    </Collapsible>
+          <CollapsibleContent>
+            <SidebarMenuSub>
+              {masterLinks.map(({ path, label, countKey }) => {
+                const to = `/dataset/${dataset.id}/${path}`;
+                const count = dataset[countKey] ?? 0;
+                return (
+                  <SidebarMenuSubItem key={path}>
+                    <SidebarMenuSubButton
+                      render={
+                        <Link
+                          to={to}
+                          onClick={() => selectDataset(dataset)}
+                        />
+                      }
+                      isActive={pathname === to}
+                      className="hover:text-sidebar-foreground data-active:text-sidebar-accent-foreground"
+                    >
+                      <span>{label}</span>
+                      <span className="ml-auto shrink-0 rounded-md bg-sidebar-accent px-1.5 py-0.5 text-xs font-medium tabular-nums text-sidebar-foreground">
+                        {count}
+                      </span>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                );
+              })}
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        </SidebarMenuItem>
+      </Collapsible>
+    </div>
   );
 }
 

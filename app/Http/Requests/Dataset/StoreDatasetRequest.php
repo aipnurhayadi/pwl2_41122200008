@@ -18,6 +18,7 @@ class StoreDatasetRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'visibility' => ['nullable', Rule::in(['PUBLIC', 'PRIVATE'])],
+            'color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ];
     }
 }

@@ -124,6 +124,7 @@ class DatasetController extends Controller
             'name' => $payload['name'],
             'description' => $payload['description'] ?? null,
             'visibility' => $payload['visibility'] ?? Dataset::VISIBILITY_PRIVATE,
+            'color' => $payload['color'] ?? '#6366F1',
         ]);
 
         $dataset->loadCount(self::DATASET_COUNT_RELATIONS);

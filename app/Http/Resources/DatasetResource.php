@@ -15,6 +15,7 @@ class DatasetResource extends JsonResource
             'name' => $this->name,
             'description' => $this->description,
             'visibility' => $this->visibility,
+            'color' => $this->color,
             'rooms_count' => $this->rooms_count ?? 0,
             'lecturers_count' => $this->lecturers_count ?? 0,
             'courses_count' => $this->courses_count ?? 0,

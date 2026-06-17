@@ -55,7 +55,8 @@ import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { toast } from "sonner";
 
 const PAGE_SIZE = 10;
-const EMPTY_FORM = { name: "", description: "", visibility: "PRIVATE" };
+const DEFAULT_DATASET_COLOR = "#6366F1";
+const EMPTY_FORM = { name: "", description: "", visibility: "PRIVATE", color: DEFAULT_DATASET_COLOR };
 
 export default function Datasets() {
   const {
@@ -133,6 +134,7 @@ export default function Datasets() {
       name: row.name ?? "",
       description: row.description ?? "",
       visibility: row.visibility ?? "PRIVATE",
+      color: row.color ?? DEFAULT_DATASET_COLOR,
     });
     setDialog({ mode: "edit", row });
   };
@@ -145,6 +147,7 @@ export default function Datasets() {
       name: form.name.trim(),
       description: form.description.trim() || null,
       visibility: form.visibility,
+      color: form.color || DEFAULT_DATASET_COLOR,
     };
 
     setSaving(true);
@@ -233,6 +236,7 @@ export default function Datasets() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">No.</TableHead>
+                <TableHead className="w-12">Warna</TableHead>
                 <TableHead>Kode</TableHead>
                 <TableHead>Nama</TableHead>
                 <TableHead>Deskripsi</TableHead>
@@ -243,7 +247,7 @@ export default function Datasets() {
             <TableBody>
               {totalItems === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     {search ? "Tidak ada hasil pencarian." : "Belum ada dataset."}
                   </TableCell>
                 </TableRow>
@@ -251,6 +255,13 @@ export default function Datasets() {
               {rows.map((row, index) => (
                 <TableRow key={row.id}>
                   <TableCell>{getRowNumber(page, PAGE_SIZE, index)}</TableCell>
+                  <TableCell>
+                    <span
+                      className="inline-block size-5 rounded-md"
+                      style={{ backgroundColor: row.color ?? DEFAULT_DATASET_COLOR }}
+                      title={row.color ?? DEFAULT_DATASET_COLOR}
+                    />
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline">{row.code}</Badge>
                   </TableCell>
@@ -314,6 +325,34 @@ export default function Datasets() {
                 value={form.description}
                 onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
               />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="ds-color">Warna Dataset</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="ds-color"
+                  type="color"
+                  value={form.color}
+                  onChange={(e) => setForm((prev) => ({ ...prev, color: e.target.value }))}
+                  className="h-9 w-12 cursor-pointer rounded-md bg-transparent p-0.5"
+                />
+                <Input
+                  value={form.color}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (/^#[0-9A-Fa-f]{0,6}$/.test(value)) {
+                      setForm((prev) => ({ ...prev, color: value }));
+                    }
+                  }}
+                  placeholder="#6366F1"
+                  className="font-mono uppercase"
+                  maxLength={7}
+                />
+                <span
+                  className="size-9 shrink-0 rounded-md"
+                  style={{ backgroundColor: form.color || DEFAULT_DATASET_COLOR }}
+                />
+              </div>
             </div>
             <div className="space-y-1">
               <Label htmlFor="ds-visibility">Visibility</Label>
