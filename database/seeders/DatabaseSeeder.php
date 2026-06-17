@@ -80,11 +80,11 @@ class DatabaseSeeder extends Seeder
             $this->seedLecturersFromCsv($dataset, (int) $adminUser->id);
             $this->seedLecturerAllowedResources($dataset, (int) $adminUser->id);
 
-            [$seededCoursePreferences, $seededTimePreferences, $skippedCoursePreferences, $skippedTimePreferences] = $this->seedLecturerPreferencesForDataset($dataset, (int) $adminUser->id);
+            [$seededCoursePreferences, $skippedCoursePreferences] = $this->seedLecturerPreferencesForDataset($dataset, (int) $adminUser->id);
 
-            echo "Seeded {$seededCoursePreferences} lecturer course preferences and {$seededTimePreferences} lecturer time slot preferences for dataset id={$dataset->id}.\n";
+            echo "Seeded {$seededCoursePreferences} lecturer course preferences for dataset id={$dataset->id}.\n";
             echo "Lecturers without course preferences: {$skippedCoursePreferences}\n";
-            echo "Lecturers without time preferences: {$skippedTimePreferences}\n";
+            echo "Lecturer time slot preferences were not seeded.\n";
         });
     }
 
@@ -99,7 +99,7 @@ class DatabaseSeeder extends Seeder
 
     private function csvPaths(): array
     {
-        $csvDir = base_path('../datasets/sistem_informasi');
+        $csvDir = base_path('datasets/sistem_informasi');
 
         return [
             $csvDir.DIRECTORY_SEPARATOR.'courses.csv',
@@ -107,12 +107,13 @@ class DatabaseSeeder extends Seeder
             $csvDir.DIRECTORY_SEPARATOR.'rooms.csv',
             $csvDir.DIRECTORY_SEPARATOR.'timeslots.csv',
             $csvDir.DIRECTORY_SEPARATOR.'classes.csv',
+            $csvDir.DIRECTORY_SEPARATOR.'lecturer_courses.csv',
         ];
     }
 
     private function csvDir(): string
     {
-        return base_path('../datasets/sistem_informasi');
+        return base_path('datasets/sistem_informasi');
     }
 
     private function readCsvRows(string $path): array
@@ -452,9 +453,6 @@ class DatabaseSeeder extends Seeder
         DB::table('lecturer_allowed_courses')->whereIn('lecturer_id', function ($query) use ($datasetId): void {
             $query->select('id')->from('lecturers')->where('dataset_id', $datasetId);
         })->delete();
-        DB::table('lecturer_allowed_time_slots')->whereIn('lecturer_id', function ($query) use ($datasetId): void {
-            $query->select('id')->from('lecturers')->where('dataset_id', $datasetId);
-        })->delete();
 
         ClassModel::query()->where('dataset_id', $datasetId)->delete();
         TimeSlot::query()->where('dataset_id', $datasetId)->delete();
@@ -538,7 +536,7 @@ class DatabaseSeeder extends Seeder
             'created_by' => $creatorId,
             'code' => 'MJR001',
             'name' => self::DEFAULT_MAJOR_NAME,
-            'description' => 'Master major seeded from seed_all',
+            'description' => 'Master major seeded from DatabaseSeeder',
         ]);
     }
 
@@ -770,45 +768,82 @@ class DatabaseSeeder extends Seeder
         return [$byNidn, $byEmail, $byName];
     }
 
+    private function normalizeNidn(?string $value): string
+    {
+        $text = trim((string) $value);
+        if ($text === '') {
+            return '';
+        }
+
+        $digits = preg_replace('/\D/', '', $text) ?? '';
+        if ($digits === '') {
+            return $text;
+        }
+
+        return str_pad($digits, 10, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * @return array<string, list<array{code: string, rank: int}> >
+     */
+    private function readLecturerCoursesCsv(): array
+    {
+        $rows = $this->readCsvRows($this->csvDir().DIRECTORY_SEPARATOR.'lecturer_courses.csv');
+        $byNidn = [];
+
+        foreach ($rows as $row) {
+            $nidn = $this->normalizeNidn($row['lecturer_nidn'] ?? null);
+            $code = trim((string) ($row['course_code'] ?? ''));
+            $rank = (int) ($row['rank_order'] ?? 0);
+
+            if ($nidn === '' || $code === '' || $rank === 0) {
+                continue;
+            }
+
+            $byNidn[$nidn][] = ['code' => $code, 'rank' => $rank];
+        }
+
+        foreach ($byNidn as $nidn => $entries) {
+            usort(
+                $byNidn[$nidn],
+                static fn (array $left, array $right): int => $left['rank'] <=> $right['rank']
+            );
+        }
+
+        return $byNidn;
+    }
+
     private function seedLecturerAllowedResources(Dataset $dataset, int $creatorId): void
     {
         $lecturers = Lecturer::query()->with('employee.user')->where('dataset_id', $dataset->id)->get();
         $courses = Course::query()->where('dataset_id', $dataset->id)->get()->all();
-        $timeSlots = TimeSlot::query()->where('dataset_id', $dataset->id)->get()->all();
+        $courseByCode = [];
+        foreach ($courses as $course) {
+            $courseByCode[$course->code] = $course;
+        }
 
-        [$byNidn, $byEmail, $byName] = $this->buildLecturerCsvLookup();
-
+        $mappings = $this->readLecturerCoursesCsv();
         $allowedCoursesCount = 0;
-        $fallbackMinFillCount = 0;
+        $skippedLecturers = 0;
 
         foreach ($lecturers as $lecturer) {
             $employee = $lecturer->employee;
-            $user = $employee?->user;
+            $nidn = $this->normalizeNidn($employee?->nidn);
+            $entries = $mappings[$nidn] ?? [];
 
-            $row = null;
-            if ($employee?->nidn) {
-                $row = $byNidn[$employee->nidn] ?? null;
+            if ($entries === []) {
+                $skippedLecturers++;
+                continue;
             }
 
-            if ($row === null && $user?->email) {
-                $row = $byEmail[strtolower(trim($user->email))] ?? null;
-            }
+            foreach ($entries as $entry) {
+                $course = $courseByCode[$entry['code']] ?? null;
+                if ($course === null) {
+                    throw new \RuntimeException(
+                        "Course code {$entry['code']} not found in dataset for lecturer nidn={$nidn}"
+                    );
+                }
 
-            if ($row === null && $employee?->name) {
-                $row = $byName[strtolower(trim($employee->name))] ?? null;
-            }
-
-            $expertiseText = '';
-            if ($row) {
-                $expertiseText = trim((string) ($row['expertise'] ?? $row['keterangan'] ?? ''));
-            }
-
-            $selectedCourses = $this->selectAllowedCourses($expertiseText, $courses, 4, 7);
-            if ($expertiseText === '' && count($selectedCourses) === 4) {
-                $fallbackMinFillCount++;
-            }
-
-            foreach ($selectedCourses as $course) {
                 DB::table('lecturer_allowed_courses')->insert([
                     'lecturer_id' => $lecturer->id,
                     'course_id' => $course->id,
@@ -819,22 +854,9 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        $allowedTimeslotsCount = 0;
-        foreach ($lecturers as $lecturer) {
-            foreach ($timeSlots as $timeSlot) {
-                DB::table('lecturer_allowed_time_slots')->insert([
-                    'lecturer_id' => $lecturer->id,
-                    'time_slot_id' => $timeSlot->id,
-                    'created_by' => $creatorId,
-                    'created_at' => now(),
-                ]);
-                $allowedTimeslotsCount++;
-            }
-        }
-
         echo "Inserted {$allowedCoursesCount} lecturer-course allowed relationships.\n";
-        echo "Minimum-fill fallback (4 courses) applied to {$fallbackMinFillCount} lecturers (no usable expertise text found).\n";
-        echo "Inserted {$allowedTimeslotsCount} lecturer-timeslot allowed relationships.\n";
+        echo "Skipped {$skippedLecturers} lecturers without lecturer_courses.csv mappings.\n";
+        echo "Lecturer allowed time slots were not seeded.\n";
     }
 
     private function seedCriteria(int $creatorId): void
@@ -877,119 +899,57 @@ class DatabaseSeeder extends Seeder
     }
 
     /**
-     * @return array{0:int,1:int,2:int,3:int}
+     * @return array{0:int,1:int}
      */
     private function seedLecturerPreferencesForDataset(Dataset $dataset, int $createdBy): array
     {
         $lecturers = Lecturer::query()->with('employee.user')->where('dataset_id', $dataset->id)->get();
+        $courses = Course::query()->where('dataset_id', $dataset->id)->get()->all();
+        $courseByCode = [];
+        foreach ($courses as $course) {
+            $courseByCode[$course->code] = $course;
+        }
+
+        $mappings = $this->readLecturerCoursesCsv();
 
         DB::table('lecturer_course_preferences')->where('dataset_id', $dataset->id)->delete();
         DB::table('lecturer_time_slot_preferences')->where('dataset_id', $dataset->id)->delete();
 
         $seededCoursePreferences = 0;
-        $seededTimePreferences = 0;
         $skippedCoursePreferences = 0;
-        $skippedTimePreferences = 0;
 
         foreach ($lecturers as $lecturer) {
-            $allowedCourses = DB::table('lecturer_allowed_courses')
-                ->join('courses', 'courses.id', '=', 'lecturer_allowed_courses.course_id')
-                ->where('lecturer_allowed_courses.lecturer_id', $lecturer->id)
-                ->select('courses.*')
-                ->get()
-                ->all();
+            $employee = $lecturer->employee;
+            $nidn = $this->normalizeNidn($employee?->nidn);
+            $entries = $mappings[$nidn] ?? [];
 
-            $selectedCourses = $allowedCourses === [] ? [] : $this->randomSample($allowedCourses, min(3, count($allowedCourses)));
+            if ($entries === []) {
+                $skippedCoursePreferences++;
+                continue;
+            }
 
-            foreach ($selectedCourses as $rankOrder => $course) {
+            foreach ($entries as $entry) {
+                $course = $courseByCode[$entry['code']] ?? null;
+                if ($course === null) {
+                    throw new \RuntimeException(
+                        "Course code {$entry['code']} not found in dataset for lecturer nidn={$nidn}"
+                    );
+                }
+
                 DB::table('lecturer_course_preferences')->insert([
                     'dataset_id' => $dataset->id,
                     'lecturer_id' => $lecturer->id,
                     'course_id' => $course->id,
-                    'rank_order' => $rankOrder + 1,
+                    'rank_order' => $entry['rank'],
                     'created_by' => $createdBy,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
                 $seededCoursePreferences++;
             }
-
-            if ($selectedCourses === []) {
-                $skippedCoursePreferences++;
-            }
-
-            $dayRanges = $this->collectDayRanges($lecturer->id);
-            $selectedRanges = $dayRanges === [] ? [] : $this->randomSample($dayRanges, min(3, count($dayRanges)));
-
-            foreach ($selectedRanges as $choiceOrder => [$startTimeSlotId, $endTimeSlotId]) {
-                DB::table('lecturer_time_slot_preferences')->insert([
-                    'dataset_id' => $dataset->id,
-                    'lecturer_id' => $lecturer->id,
-                    'start_time_slot_id' => $startTimeSlotId,
-                    'end_time_slot_id' => $endTimeSlotId,
-                    'choice_order' => $choiceOrder + 1,
-                    'created_by' => $createdBy,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-                $seededTimePreferences++;
-            }
-
-            if ($selectedRanges === []) {
-                $skippedTimePreferences++;
-            }
         }
 
-        return [$seededCoursePreferences, $seededTimePreferences, $skippedCoursePreferences, $skippedTimePreferences];
-    }
-
-    private function collectDayRanges(int $lecturerId): array
-    {
-        $slots = DB::table('lecturer_allowed_time_slots')
-            ->join('time_slots', 'time_slots.id', '=', 'lecturer_allowed_time_slots.time_slot_id')
-            ->where('lecturer_allowed_time_slots.lecturer_id', $lecturerId)
-            ->select('time_slots.*')
-            ->get()
-            ->all();
-
-        $slotsByDay = [];
-        foreach ($slots as $slot) {
-            $slotsByDay[$slot->day][] = $slot;
-        }
-
-        $dayRanges = [];
-        foreach (self::DAYS as $day) {
-            $daySlots = $slotsByDay[$day] ?? [];
-            if ($daySlots === []) {
-                continue;
-            }
-
-            usort($daySlots, static function ($left, $right): int {
-                return [$left->start_time, $left->end_time, $left->id] <=> [$right->start_time, $right->end_time, $right->id];
-            });
-
-            $dayRanges[] = [$daySlots[0]->id, $daySlots[array_key_last($daySlots)]->id];
-        }
-
-        return $dayRanges;
-    }
-
-    private function randomSample(array $items, int $count): array
-    {
-        if ($count <= 0 || $items === []) {
-            return [];
-        }
-
-        $indexes = array_keys($items);
-        shuffle($indexes);
-        $indexes = array_slice($indexes, 0, $count);
-
-        $sample = [];
-        foreach ($indexes as $index) {
-            $sample[] = $items[$index];
-        }
-
-        return $sample;
+        return [$seededCoursePreferences, $skippedCoursePreferences];
     }
 
     private function toIntOrNull(?string $value): ?int

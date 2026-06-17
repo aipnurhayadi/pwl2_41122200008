@@ -5,29 +5,34 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class LecturerAllowedTimeSlot extends Model
+class LecturerCoursePreference extends Model
 {
-    public $timestamps = false;
-
-    protected $table = 'lecturer_allowed_time_slots';
-
     protected $fillable = [
+        'dataset_id',
         'lecturer_id',
-        'time_slot_id',
+        'course_id',
         'created_by',
+        'rank_order',
     ];
 
     protected $casts = [
+        'rank_order' => 'integer',
         'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
+
+    public function dataset(): BelongsTo
+    {
+        return $this->belongsTo(Dataset::class, 'dataset_id');
+    }
 
     public function lecturer(): BelongsTo
     {
         return $this->belongsTo(Lecturer::class, 'lecturer_id');
     }
 
-    public function timeSlot(): BelongsTo
+    public function course(): BelongsTo
     {
-        return $this->belongsTo(TimeSlot::class, 'time_slot_id');
+        return $this->belongsTo(Course::class, 'course_id');
     }
 }

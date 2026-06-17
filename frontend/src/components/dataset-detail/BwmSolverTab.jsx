@@ -33,11 +33,6 @@ function formatCriterionLabel(criterion) {
   return criterion.name;
 }
 
-function formatCriterionGroup(criterion) {
-  if (!criterion) return "";
-  return criterion.is_lecturer_preference ? "Preferensi dosen" : "Kebijakan global";
-}
-
 export default function BwmSolverTab({
   bwmLoading,
   bwmCriteria,
@@ -187,9 +182,6 @@ export default function BwmSolverTab({
                         <p className="truncate" title={formatCriterionLabel(c)}>
                           {formatCriterionLabel(c)}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatCriterionGroup(c)}
-                        </p>
                       </div>
                     </TableCell>
                     <TableCell className="w-[88px] border-l bg-muted/30 px-2">
@@ -237,9 +229,6 @@ export default function BwmSolverTab({
                       <div className="space-y-1">
                         <p className="truncate" title={formatCriterionLabel(c)}>
                           {formatCriterionLabel(c)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatCriterionGroup(c)}
                         </p>
                       </div>
                     </TableCell>
@@ -319,9 +308,6 @@ export default function BwmSolverTab({
                           <div className="space-y-1">
                             <p>
                               {formatCriterionLabel(criteriaById.get(w.criterion_id))}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {formatCriterionGroup(criteriaById.get(w.criterion_id))}
                             </p>
                           </div>
                         </TableCell>

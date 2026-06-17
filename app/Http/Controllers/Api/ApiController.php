@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Dataset;
+use App\Models\Lecturer;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -123,5 +124,51 @@ abstract class ApiController extends Controller
                 }
             }
         });
+    }
+
+    protected function findLecturerInDataset(int $datasetId, int $lecturerId, User $user): Lecturer|JsonResponse
+    {
+        $dataset = $this->findAccessibleDataset($datasetId, $user);
+        if (! $dataset) {
+            return $this->notFound('Dataset not found');
+        }
+
+        $lecturer = Lecturer::query()
+            ->with(['employee.user'])
+            ->where('dataset_id', $dataset->id)
+            ->where('id', $lecturerId)
+            ->first();
+
+        if (! $lecturer) {
+            return $this->notFound('Lecturer not found');
+        }
+
+        return $lecturer;
+    }
+
+    protected function findLecturerForUser(int $datasetId, User $user): Lecturer|JsonResponse
+    {
+        $dataset = $this->findAccessibleDataset($datasetId, $user);
+        if (! $dataset) {
+            return $this->notFound('Dataset not found');
+        }
+
+        $user->loadMissing('employeeProfile');
+
+        if ($user->role !== User::ROLE_LECTURER || ! $user->employeeProfile) {
+            return $this->forbidden();
+        }
+
+        $lecturer = Lecturer::query()
+            ->with(['employee.user'])
+            ->where('dataset_id', $dataset->id)
+            ->where('employee_id', $user->employeeProfile->id)
+            ->first();
+
+        if (! $lecturer) {
+            return $this->notFound('Lecturer assignment not found for this dataset');
+        }
+
+        return $lecturer;
     }
 }

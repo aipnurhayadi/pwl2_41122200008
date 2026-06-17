@@ -16,8 +16,11 @@ Copy-Item .env.example .env
 composer install
 php artisan key:generate
 php artisan migrate --force
+php artisan seed:export-spreadsheet
 php artisan db:seed --force
 ```
+
+Jalankan `php artisan seed:export-spreadsheet` setelah memperbarui spreadsheet Excel sebelum seed ulang.
 
 Atur koneksi database di `.env` sesuai PostgreSQL lokal Anda.
 
@@ -45,7 +48,8 @@ Vite mem-proxy request `/api` ke backend Laravel saat development.
 1) Copy .env dan sesuaikan koneksi database
 2) composer install
 3) php artisan migrate --force
-4) php artisan db:seed --force
-5) Jalankan backend dengan php artisan serve
-6) Jalankan frontend dari frontend/ dengan npm run dev
+4) php artisan seed:export-spreadsheet
+5) php artisan db:seed --force
+6) Jalankan backend dengan php artisan serve
+7) Jalankan frontend dari frontend/ dengan npm run dev
 ```

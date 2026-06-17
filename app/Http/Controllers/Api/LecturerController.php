@@ -5,12 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Requests\Lecturer\StoreLecturerRequest;
 use App\Http\Requests\Lecturer\UpdateLecturerRequest;
 use App\Http\Resources\LecturerResource;
-use App\Models\Course;
-use App\Models\Employee;
 use App\Models\Lecturer;
-use App\Models\LecturerAllowedCourse;
-use App\Models\LecturerAllowedTimeSlot;
-use App\Models\TimeSlot;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
@@ -72,34 +67,12 @@ class LecturerController extends ApiController
 
         try {
             $lecturer = DB::transaction(function () use ($dataset, $currentUser, $employee): Lecturer {
-                $lecturer = Lecturer::query()->create([
+                return Lecturer::query()->create([
                     'dataset_id' => $dataset->id,
                     'employee_id' => $employee->id,
                     'created_by' => $currentUser->id,
                     'code' => $this->generateLecturerCode($dataset, $employee),
                 ]);
-
-                $courses = Course::query()->where('dataset_id', $dataset->id)->pluck('id');
-                foreach ($courses as $courseId) {
-                    LecturerAllowedCourse::query()->create([
-                        'lecturer_id' => $lecturer->id,
-                        'course_id' => $courseId,
-                        'created_by' => $currentUser->id,
-                        'created_at' => now(),
-                    ]);
-                }
-
-                $timeSlots = TimeSlot::query()->where('dataset_id', $dataset->id)->pluck('id');
-                foreach ($timeSlots as $timeSlotId) {
-                    LecturerAllowedTimeSlot::query()->create([
-                        'lecturer_id' => $lecturer->id,
-                        'time_slot_id' => $timeSlotId,
-                        'created_by' => $currentUser->id,
-                        'created_at' => now(),
-                    ]);
-                }
-
-                return $lecturer;
             });
         } catch (QueryException) {
             return $this->conflict('Employee is already assigned to this dataset');

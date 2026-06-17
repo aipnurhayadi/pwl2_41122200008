@@ -147,16 +147,6 @@ return new class extends Migration
             $table->unique(['lecturer_id', 'course_id'], 'uq_lac_lecturer_course');
         });
 
-        Schema::create('lecturer_allowed_time_slots', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('lecturer_id')->constrained('lecturers')->cascadeOnDelete();
-            $table->foreignId('time_slot_id')->constrained('time_slots')->cascadeOnDelete();
-            $table->foreignId('created_by')->default(1)->constrained('users')->cascadeOnDelete();
-            $table->timestampTz('created_at')->useCurrent();
-
-            $table->unique(['lecturer_id', 'time_slot_id'], 'uq_lats_hard_lecturer_time_slot');
-        });
-
         Schema::create('lecturer_course_preferences', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('dataset_id')->constrained('datasets')->cascadeOnDelete();
@@ -252,7 +242,7 @@ return new class extends Migration
         DB::statement("ALTER TABLE datasets ADD CONSTRAINT ck_datasets_visibility_enum CHECK (visibility IN ('PUBLIC','PRIVATE'))");
         DB::statement("ALTER TABLE rooms ADD CONSTRAINT ck_rooms_room_type_enum CHECK (room_type IS NULL OR room_type IN ('TEORI','LABORATORIUM','AULA','SEMINAR'))");
         DB::statement("ALTER TABLE time_slots ADD CONSTRAINT ck_time_slots_day_enum CHECK (day IN ('MON','TUE','WED','THU','FRI','SAT','SUN'))");
-        DB::statement('ALTER TABLE lecturer_course_preferences ADD CONSTRAINT ck_lcp_rank_order_range CHECK (rank_order >= 1 AND rank_order <= 3)');
+        DB::statement('ALTER TABLE lecturer_course_preferences ADD CONSTRAINT ck_lcp_rank_order_range CHECK (rank_order >= 1 AND rank_order <= 7)');
         DB::statement('ALTER TABLE lecturer_time_slot_preferences ADD CONSTRAINT ck_ltsp_choice_order_range CHECK (choice_order >= 1 AND choice_order <= 3)');
         DB::statement("ALTER TABLE criteria ADD CONSTRAINT ck_criteria_type_enum CHECK (type IN ('HARD','SOFT'))");
         DB::statement('ALTER TABLE bwm_responses ADD CONSTRAINT ck_bwm_best_worst_not_equal CHECK (best_criteria_id <> worst_criteria_id)');
@@ -271,7 +261,6 @@ return new class extends Migration
         Schema::dropIfExists('criteria');
         Schema::dropIfExists('lecturer_time_slot_preferences');
         Schema::dropIfExists('lecturer_course_preferences');
-        Schema::dropIfExists('lecturer_allowed_time_slots');
         Schema::dropIfExists('lecturer_allowed_courses');
         Schema::dropIfExists('classes');
         Schema::dropIfExists('time_slots');

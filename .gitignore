@@ -22,9 +22,5 @@ yarn-error.log
 /.vscode
 /.zed
 
-# Legacy Python backend artifacts
-backend/venv/
-backend/**/__pycache__/
-
 # Frontend build output
 frontend/dist/

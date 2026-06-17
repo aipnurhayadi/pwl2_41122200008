@@ -1,11 +1,15 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BwmController;
 use App\Http\Controllers\Api\ClassController;
 use App\Http\Controllers\Api\CourseController;
+use App\Http\Controllers\Api\CriterionController;
 use App\Http\Controllers\Api\DatasetController;
 use App\Http\Controllers\Api\EmployeeController;
+use App\Http\Controllers\Api\LecturerAllowedCourseController;
 use App\Http\Controllers\Api\LecturerController;
+use App\Http\Controllers\Api\LecturerPreferenceController;
 use App\Http\Controllers\Api\RoomController;
 use App\Http\Controllers\Api\TimeSlotController;
 use Illuminate\Support\Facades\Route;
@@ -67,6 +71,20 @@ Route::prefix('datasets')->group(function (): void {
         Route::get('/{datasetId}/classes/{classId}', [ClassController::class, 'show'])->whereNumber(['datasetId', 'classId']);
         Route::put('/{datasetId}/classes/{classId}', [ClassController::class, 'update'])->whereNumber(['datasetId', 'classId']);
         Route::delete('/{datasetId}/classes/{classId}', [ClassController::class, 'destroy'])->whereNumber(['datasetId', 'classId']);
+
+        Route::get('/{datasetId}/criteria', [CriterionController::class, 'index'])->whereNumber('datasetId');
+
+        Route::get('/{datasetId}/lecturers/{lecturerId}/allowed-courses', [LecturerAllowedCourseController::class, 'show'])->whereNumber(['datasetId', 'lecturerId']);
+        Route::put('/{datasetId}/lecturers/{lecturerId}/allowed-courses', [LecturerAllowedCourseController::class, 'update'])->whereNumber(['datasetId', 'lecturerId']);
+
+        Route::get('/{datasetId}/lecturer-preferences/my', [LecturerPreferenceController::class, 'myShow'])->whereNumber('datasetId');
+        Route::put('/{datasetId}/lecturer-preferences/my', [LecturerPreferenceController::class, 'myUpdate'])->whereNumber('datasetId');
+        Route::get('/{datasetId}/lecturer-preferences/my/constraints', [LecturerPreferenceController::class, 'myConstraints'])->whereNumber('datasetId');
+        Route::get('/{datasetId}/lecturers/{lecturerId}/preferences', [LecturerPreferenceController::class, 'showForLecturer'])->whereNumber(['datasetId', 'lecturerId']);
+
+        Route::get('/{datasetId}/bwm/my', [BwmController::class, 'myShow'])->whereNumber('datasetId');
+        Route::put('/{datasetId}/bwm/my', [BwmController::class, 'myUpdate'])->whereNumber('datasetId');
+        Route::get('/{datasetId}/lecturers/{lecturerId}/bwm', [BwmController::class, 'showForLecturer'])->whereNumber(['datasetId', 'lecturerId']);
 
         Route::get('/{datasetId}', [DatasetController::class, 'show'])->whereNumber('datasetId');
         Route::put('/{datasetId}', [DatasetController::class, 'update'])->whereNumber('datasetId');

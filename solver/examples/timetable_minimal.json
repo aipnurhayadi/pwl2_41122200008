@@ -1,0 +1,64 @@
+{
+  "dataset_id": 1,
+  "weights": {
+    "SFT_001": 0.2,
+    "SFT_002": 0.15,
+    "SFT_003": 0.1,
+    "SFT_004": 0.1,
+    "SFT_005": 0.1,
+    "SFT_006": 0.1,
+    "SFT_007": 0.125,
+    "SFT_008": 0.125
+  },
+  "config": {
+    "daily_session_limit": 2,
+    "max_candidates_per_request": 40,
+    "transition_neighbor_limit": 8,
+    "solver_time_limit_seconds": 45,
+    "solver_relative_gap": 0.03,
+    "solver_threads": 2
+  },
+  "rooms": [
+    {"id": 1, "code": "R101", "capacity": 40, "floor": 1, "room_type": "TEORI"},
+    {"id": 2, "code": "R102", "capacity": 40, "floor": 1, "room_type": "TEORI"}
+  ],
+  "time_slots": [
+    {"id": 1, "code": "MON_1", "day": "MON", "start_time": "08:00:00", "end_time": "09:40:00"},
+    {"id": 2, "code": "MON_2", "day": "MON", "start_time": "09:40:00", "end_time": "11:20:00"},
+    {"id": 3, "code": "TUE_1", "day": "TUE", "start_time": "08:00:00", "end_time": "09:40:00"}
+  ],
+  "lecturers": [
+    {
+      "id": 1,
+      "allowed_course_ids": [10],
+      "allowed_time_slot_ids": [1, 2, 3],
+      "course_preferences": [{"course_id": 10, "rank_order": 1}],
+      "time_slot_preferences": [
+        {"day": "MON", "start_time": "08:00:00", "end_time": "11:20:00", "choice_order": 1}
+      ]
+    },
+    {
+      "id": 2,
+      "allowed_course_ids": [11],
+      "allowed_time_slot_ids": [1, 2, 3],
+      "course_preferences": [{"course_id": 11, "rank_order": 1}],
+      "time_slot_preferences": []
+    }
+  ],
+  "teaching_requests": [
+    {
+      "class_id": 100,
+      "course_id": 10,
+      "duration_slots": 1,
+      "expected_capacity": 30,
+      "class_capacity": 35
+    },
+    {
+      "class_id": 101,
+      "course_id": 11,
+      "duration_slots": 1,
+      "expected_capacity": 30,
+      "class_capacity": 35
+    }
+  ]
+}

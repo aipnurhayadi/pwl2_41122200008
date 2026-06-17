@@ -1,66 +1,32 @@
 name,code,credits,semester,curriculum_year,description
-"Pendidikan Kewarganegaraan","MKU61107",2,1,2020,""
-"Bahasa Indonesia","MKU61108",2,1,2020,""
-"Kalkulus","ENG61101",3,1,2020,""
-"Algoritma Dasar dan Pemrograman","SIF61101",3,1,2020,""
-"Manajemen Sistem Informasi","SIF61102",2,1,2020,""
-"Manajemen dan Organisasi","SIF61103",2,1,2020,""
-"Dasar Akuntansi untuk SI","SIF61104",2,1,2020,""
-"Dasar Sistem Operasi","SIF61105",2,1,2020,""
-
-"Pendidikan Agama Islam","MKU62101",2,2,2020,""
-"Pendidikan Agama Katolik","MKU62102",2,2,2020,""
-"Pendidikan Agama Protestan","MKU62103",2,2,2020,""
-"Pendidikan Agama Hindu","MKU62104",2,2,2020,""
-"Pendidikan Agama Budha","MKU62105",2,2,2020,""
-"Pendidikan Pancasila","MKU62106",2,2,2020,""
-"Literasi Digital","UTM62101",2,2,2020,""
-"Pemrograman Berorientasi Objek","SIF62105",3,2,2020,""
-"Analisis & Pemodelan Proses Bisnis","SIF62106",3,2,2020,""
-"Manajemen Basis Data","SIF62107",2,2,2020,""
-
-"Entrepreneurship [e]","UTM61103",2,3,2020,"E-learning"
-"Probabilitas","ENG61109",3,3,2020,""
-"English for Engineering","ENG61114",2,3,2020,""
-"Interaksi Manusia dan Komputer [e]","SIF61110",2,3,2020,"E-learning"
-"SAP01 Fundamental","ENG61115",2,3,2020,""
-"Pemrograman Berbasis Web","SIF61111",3,3,2020,""
-"Analisis Perancangan Sistem Informasi","SIF61112",3,3,2020,""
-"Keamanan Sistem Informasi","SIF61113",3,3,2020,""
-
-"e-Government [e]","SIF61114",2,4,2020,"E-learning"
-"Statistika","ENG62110",3,4,2020,""
-"Sains Data","SIF62115",3,4,2020,""
-"Pengantar Kecerdasan Buatan [e]","SIF62116",2,4,2020,"E-learning"
-"Manajemen Risiko IT [e]","SIF62117",2,4,2020,"E-learning"
-"Pemrograman Mobile","SIF62118",2,4,2020,""
-"Desain Pengalaman Pengguna","SIF62119",3,4,2020,""
-"SAP AC010 Business Processes in Financial Accounting","SIF62120",3,4,2020,""
-
-"Manajemen Proyek Sistem Informasi","SIF61121",3,5,2020,""
-"Pengantar Perancangan Arsitektur Enterprise","SIF61122",2,5,2020,""
-"Tata Kelola Teknologi Informasi [e]","SIF61123",3,5,2020,"E-learning"
-"Perencanaan Strategi Sistem Informasi [e]","SIF61124",2,5,2020,"E-learning"
-"Testing dan Implementasi","SIF61125",2,5,2020,""
-"Rekayasa Ulang Proses Bisnis","SIF61126",2,5,2020,""
-"Komputasi Awan [e]","SIF61227",3,5,2020,"E-learning"
-"Manajemen Hubungan Pelanggan [e]","SIF61228",3,5,2020,"E-learning"
-"Data Mining dan Visualisasi Data","SIF61229",3,5,2020,""
-
-"Certificate Language Proficiency","UTM62102",3,6,2020,""
-"Forensik Digital","SIF62137",3,6,2020,""
-"Metode Penelitian dan Penyusunan Karya Ilmiah","SIF62138",3,6,2020,""
-"Audit Teknologi Informasi","SIF62139",3,6,2020,""
-"e-Commerce","SIF62240",3,6,2020,""
-"Proyek Capstone Sistem Informasi","SIF62241",3,6,2020,""
-"Manajemen Data Terpusat","SIF62242",3,6,2020,""
-"Manajemen Investasi TI","SIF62243",3,6,2020,""
-
-"Komunikasi","MBK61101",3,7,2020,""
-"Problem Solving","MBK61102",4,7,2020,""
-"Adaptasi","MBK61103",3,7,2020,""
-"Berpikir Kritis","MBK61104",4,7,2020,""
-"Kerjasama Tim","MBK61105",3,7,2020,""
-"Kreatifitas","MBK61106",3,7,2020,""
-
-"Tugas Akhir","SIF62146",6,8,2020,""
+"Manajemen Basis Data",SIF62107,2,2,2020,
+Probabilitas,ENG61109,3,3,2020,
+Statistika,ENG62110,3,4,2020,
+"Sains Data",SIF62115,3,4,2020,
+"SAP AC010 Business Processes in Financial Accounting",SIF62120,3,4,2020,
+"Data Mining dan Visualisasi Data",SIF61229,3,5,2020,
+"Manajemen Data Terpusat",SIF62242,3,6,2020,
+"Manajemen Sistem Informasi",SIF61102,2,1,2020,
+"Manajemen Proyek Sistem Informasi",SIF61121,3,5,2020,
+"Pengantar Perancangan Arsitektur Enterprise",SIF61122,2,5,2020,
+"Tata Kelola Teknologi Informasi [e]",SIF61123,3,5,2020,E-learning
+"Perencanaan Strategi Sistem Informasi [e]",SIF61124,2,5,2020,E-learning
+"Audit Teknologi Informasi",SIF62139,3,6,2020,
+"Analisis Perancangan Sistem Informasi",SIF61112,3,3,2020,
+"Keamanan Sistem Informasi",SIF61113,3,3,2020,
+"Proyek Capstone Sistem Informasi",SIF62241,3,6,2020,
+"Rekayasa Ulang Proses Bisnis",SIF61126,2,5,2020,
+"Manajemen Hubungan Pelanggan [e]",SIF61228,3,5,2020,E-learning
+"Algoritma Dasar dan Pemrograman",SIF61101,3,1,2020,
+"Pemrograman Berorientasi Objek",SIF62105,3,2,2020,
+"Interaksi Manusia dan Komputer [e]",SIF61110,2,3,2020,E-learning
+"Pemrograman Berbasis Web",SIF61111,3,3,2020,
+"Pemrograman Mobile",SIF62118,2,4,2020,
+"Desain Pengalaman Pengguna",SIF62119,3,4,2020,
+"Tugas Akhir",SIF62146,6,8,2020,
+"Literasi Digital",UTM62101,2,2,2020,
+"e-Government [e]",SIF61114,2,4,2020,E-learning
+"Forensik Digital",SIF62137,3,6,2020,
+e-Commerce,SIF62240,3,6,2020,
+"Manajemen Investasi TI",SIF62243,3,6,2020,
+"Manajemen Risiko IT [e]",SIF62117,2,4,2020,E-learning

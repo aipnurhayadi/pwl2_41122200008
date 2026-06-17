@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, X } from "lucide-react";
+import { GraduationCap, Plus, Pencil, Trash2, Loader2, Search, X, BookOpen, ListOrdered } from "lucide-react";
 import { useDataset } from "@/context/DatasetContext";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ import { normalizePaginatedResponse } from "@/lib/paginated";
 import { getRowNumber } from "@/lib/table";
 import { useDebouncedValue } from "@/lib/useDebouncedValue";
 import { toast } from "sonner";
+import LecturerCourseMappingDialog from "@/components/lecturers/LecturerCourseMappingDialog";
+import LecturerPreferenceBwmViewDialog from "@/components/lecturers/LecturerPreferenceBwmViewDialog";
 
 const EMPTY_FORM = { employee_id: "" };
 const PAGE_SIZE = 10;
@@ -48,6 +50,8 @@ export default function Lecturers() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [page, setPage] = useState(1);
+  const [mappingTarget, setMappingTarget] = useState(null);
+  const [viewTarget, setViewTarget] = useState(null);
   const debouncedSearch = useDebouncedValue(search, 300);
   const selectedEmployee = employees.find((emp) => String(emp.id) === form.employee_id);
 
@@ -218,7 +222,7 @@ export default function Lecturers() {
                 <TableHead>Kode Karyawan</TableHead>
                 <TableHead>Nama</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead className="w-20" />
+                <TableHead className="w-28" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -239,6 +243,22 @@ export default function Lecturers() {
                   <TableCell>
                     {!isLecturerRole && (
                       <div className="flex items-center gap-1 justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Mapping MK"
+                          onClick={() => setMappingTarget(r)}
+                        >
+                          <BookOpen className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Preferensi & BWM"
+                          onClick={() => setViewTarget(r)}
+                        >
+                          <ListOrdered className="h-3.5 w-3.5" />
+                        </Button>
                         <Button variant="ghost" size="icon-sm" onClick={() => openEdit(r)}><Pencil className="h-3.5 w-3.5" /></Button>
                         <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => setDelTarget(r)}><Trash2 className="h-3.5 w-3.5" /></Button>
                       </div>
@@ -313,6 +333,20 @@ export default function Lecturers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <LecturerCourseMappingDialog
+        open={mappingTarget !== null}
+        onOpenChange={(open) => !open && setMappingTarget(null)}
+        datasetId={dsId}
+        lecturer={mappingTarget}
+      />
+
+      <LecturerPreferenceBwmViewDialog
+        open={viewTarget !== null}
+        onOpenChange={(open) => !open && setViewTarget(null)}
+        datasetId={dsId}
+        lecturer={viewTarget}
+      />
     </main>
   );
 }

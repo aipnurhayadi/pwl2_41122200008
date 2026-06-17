@@ -5,9 +5,9 @@ import {
   Loader2,
   ArrowLeft,
   CalendarClock,
+  Play,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -91,6 +91,7 @@ export default function DatasetDetail() {
   const [error, setError] = useState(null);
   const [activeModal, setActiveModal] = useState(null);
   const [modalPage, setModalPage] = useState(1);
+  const [runningSolver, setRunningSolver] = useState(false);
 
   useEffect(() => {
     if (!datasetId) return;
@@ -159,6 +160,34 @@ export default function DatasetDetail() {
   const backTo = user?.role === "LECTURER" ? "/my-datasets" : "/datasets";
   const navBackLink = <></>;
 
+  const handleRunSolver = async () => {
+    if (!token || !datasetId) {
+      toast.error("Login diperlukan untuk menjalankan solver");
+      return;
+    }
+
+    setRunningSolver(true);
+    try {
+      const res = await fetch(`/api/datasets/${datasetId}/timetable-runs/generate`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail ?? "Gagal menjalankan solver");
+      }
+      toast.success("Solver berhasil dijalankan");
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setRunningSolver(false);
+    }
+  };
+
   if (loading) {
     if (isAdmin) {
       return (
@@ -224,21 +253,41 @@ export default function DatasetDetail() {
               {tree.dataset.description || "Tanpa deskripsi"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">{tree.dataset.code}</Badge>
-          </div>
+          {isAdmin && (
+            <Button
+              size="lg"
+              disabled={runningSolver}
+              onClick={handleRunSolver}
+              className="h-12 min-w-[180px] gap-2.5 px-8 text-base font-bold shadow-lg shadow-primary/30 ring-2 ring-primary/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/35 active:scale-[0.98] disabled:hover:scale-100"
+            >
+              {runningSolver ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Menjalankan...
+                </>
+              ) : (
+                <>
+                  <Play className="h-5 w-5 fill-current" />
+                  Run Solver
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </section>
 
       {token && user?.role === "LECTURER" && (
-        <section className="rounded-xl border bg-card p-5 space-y-2">
+        <section className="rounded-xl border bg-card p-5 space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <CalendarClock className="h-4 w-4 text-muted-foreground" />
-            Fitur Lanjutan
+            Preferensi Mengajar
           </div>
           <p className="text-sm text-muted-foreground">
-            Modul solver dan preferensi dosen belum diaktifkan pada backend Laravel saat ini.
+            Isi ranking mata kuliah dan kuesioner BWM untuk dataset ini.
           </p>
+          <Button asChild variant="outline" size="sm">
+            <Link to={`/datasets/${datasetId}/preferences`}>Buka Halaman Preferensi</Link>
+          </Button>
         </section>
       )}
 
