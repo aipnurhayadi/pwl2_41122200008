@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import {
   Database,
   Loader2,
   ArrowLeft,
-  CalendarClock,
   Play,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -29,8 +28,10 @@ import {
 } from "@/components/ui/dialog";
 import EmployeeAppLayout from "@/components/layouts/EmployeeAppLayout";
 import TimetableAnalyticsSection from "@/components/dataset-detail/TimetableAnalyticsSection";
+import LecturerDatasetTabs from "@/components/dataset-detail/LecturerDatasetTabs";
 
 const PAGE_SIZE = 8;
+const LECTURER_TABS = new Set(["bwm", "preferences", "result"]);
 
 const DAY_LABELS = {
   MON: "Senin",
@@ -85,6 +86,7 @@ function getModalRows(key, tree) {
 export default function DatasetDetail() {
   const { datasetId } = useParams();
   const { token, user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [tree, setTree] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -92,6 +94,16 @@ export default function DatasetDetail() {
   const [activeModal, setActiveModal] = useState(null);
   const [modalPage, setModalPage] = useState(1);
   const [runningSolver, setRunningSolver] = useState(false);
+
+  const isAdmin = user?.role === "ADMIN";
+  const isLecturer = user?.role === "LECTURER";
+
+  const tabParam = searchParams.get("tab");
+  const activeTab = LECTURER_TABS.has(tabParam) ? tabParam : "bwm";
+
+  const setActiveTab = (tab) => {
+    setSearchParams({ tab });
+  };
 
   useEffect(() => {
     if (!datasetId) return;
@@ -115,7 +127,6 @@ export default function DatasetDetail() {
     };
     run();
   }, [datasetId, token]);
-
 
   const quickStats = useMemo(() => {
     if (!tree) return [];
@@ -156,8 +167,7 @@ export default function DatasetDetail() {
     (modalPage - 1) * PAGE_SIZE,
     modalPage * PAGE_SIZE,
   );
-  const isAdmin = user?.role === "ADMIN";
-  const backTo = user?.role === "LECTURER" ? "/my-datasets" : "/datasets";
+  const backTo = isLecturer ? "/my-datasets" : "/datasets";
   const navBackLink = <></>;
 
   const handleRunSolver = async () => {
@@ -235,62 +245,49 @@ export default function DatasetDetail() {
 
   if (!tree) return null;
 
-  const content = (
-    <>
-      <section className="rounded-xl border bg-card p-5">
-        <div className="flex flex-wrap items-start gap-3">
-          <Link
-            to={backTo}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label="Kembali"
-            title="Kembali"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-          <div className="grow">
-            <h1 className="text-2xl font-bold">{tree.dataset.name}</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {tree.dataset.description || "Tanpa deskripsi"}
-            </p>
-          </div>
-          {isAdmin && (
-            <Button
-              size="lg"
-              disabled={runningSolver}
-              onClick={handleRunSolver}
-              className="h-12 min-w-[180px] gap-2.5 px-8 text-base font-bold shadow-lg shadow-primary/30 ring-2 ring-primary/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/35 active:scale-[0.98] disabled:hover:scale-100"
-            >
-              {runningSolver ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Menjalankan...
-                </>
-              ) : (
-                <>
-                  <Play className="h-5 w-5 fill-current" />
-                  Run Solver
-                </>
-              )}
-            </Button>
-          )}
-        </div>
-      </section>
-
-      {token && user?.role === "LECTURER" && (
-        <section className="rounded-xl border bg-card p-5 space-y-3">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <CalendarClock className="h-4 w-4 text-muted-foreground" />
-            Preferensi Mengajar
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Isi ranking mata kuliah dan kuesioner BWM untuk dataset ini.
+  const headerSection = (
+    <section className="rounded-xl border bg-card p-5">
+      <div className="flex flex-wrap items-start gap-3">
+        <Link
+          to={backTo}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+          aria-label="Kembali"
+          title="Kembali"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Link>
+        <div className="grow">
+          <h1 className="text-2xl font-bold">{tree.dataset.name}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {tree.dataset.description || "Tanpa deskripsi"}
           </p>
-          <Button asChild variant="outline" size="sm">
-            <Link to={`/datasets/${datasetId}/preferences`}>Buka Halaman Preferensi</Link>
+        </div>
+        {isAdmin && (
+          <Button
+            size="lg"
+            disabled={runningSolver}
+            onClick={handleRunSolver}
+            className="h-12 min-w-[180px] gap-2.5 px-8 text-base font-bold shadow-lg shadow-primary/30 ring-2 ring-primary/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/35 active:scale-[0.98] disabled:hover:scale-100"
+          >
+            {runningSolver ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Menjalankan...
+              </>
+            ) : (
+              <>
+                <Play className="h-5 w-5 fill-current" />
+                Run Solver
+              </>
+            )}
           </Button>
-        </section>
-      )}
+        )}
+      </div>
+    </section>
+  );
 
+  const adminBody = (
+    <>
       <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {quickStats.map((item) => (
           <Card key={item.label} className="rounded-xl">
@@ -364,8 +361,22 @@ export default function DatasetDetail() {
     </>
   );
 
+  const lecturerBody = (
+    <LecturerDatasetTabs
+      datasetId={datasetId}
+      tree={tree}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+    />
+  );
+
   if (isAdmin) {
-    return <main className="container mx-auto max-w-5xl px-4 py-8 space-y-6">{content}</main>;
+    return (
+      <main className="container mx-auto max-w-5xl px-4 py-8 space-y-6">
+        {headerSection}
+        {adminBody}
+      </main>
+    );
   }
 
   return (
@@ -375,7 +386,8 @@ export default function DatasetDetail() {
       navContent={navBackLink}
       mainClassName="space-y-6"
     >
-      {content}
+      {headerSection}
+      {isLecturer ? lecturerBody : adminBody}
     </EmployeeAppLayout>
   );
 }

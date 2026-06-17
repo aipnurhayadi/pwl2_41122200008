@@ -8,7 +8,7 @@ import CoursePreferenceSortableList from "@/components/dataset-detail/CoursePref
 
 const MAX_RANKED_COURSES = 7;
 
-export default function LecturerPreferencesTab({ datasetId }) {
+export default function LecturerPreferencesTab({ datasetId, embedded = false }) {
   const { token } = useAuth();
 
   const [courses, setCourses] = useState([]);
@@ -167,12 +167,21 @@ export default function LecturerPreferencesTab({ datasetId }) {
     <div className="space-y-6">
       <section className="rounded-xl border bg-card p-5 space-y-2">
         <div className="flex flex-wrap items-start gap-3">
-          <div className="grow">
-            <h2 className="text-xl font-bold">Preferensi Mengajar Dosen</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Urutkan mata kuliah yang telah ditetapkan admin sesuai prioritas Anda.
-            </p>
-          </div>
+          {!embedded && (
+            <div className="grow">
+              <h2 className="text-xl font-bold">Preferensi Mengajar Dosen</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Urutkan mata kuliah yang telah ditetapkan admin sesuai prioritas Anda.
+              </p>
+            </div>
+          )}
+          {embedded && (
+            <div className="grow">
+              <p className="text-sm text-muted-foreground">
+                Urutkan mata kuliah yang telah ditetapkan admin sesuai prioritas Anda.
+              </p>
+            </div>
+          )}
           <Button onClick={handleSave} disabled={saving || loading}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Simpan
           </Button>
