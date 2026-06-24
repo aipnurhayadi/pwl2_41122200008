@@ -17,6 +17,7 @@ import (
 	"os"
 
 	"pwl2/solver/internal/model"
+	"pwl2/solver/internal/runlog"
 	"pwl2/solver/internal/timetable"
 )
 
@@ -39,6 +40,11 @@ func main() {
 }
 
 func runTimetable() {
+	if _, err := runlog.InitFromEnv(); err != nil {
+		fmt.Fprintf(os.Stderr, "timetable: init logger: %v\n", err)
+		os.Exit(1)
+	}
+
 	input, closer, err := openInput()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "timetable: %v\n", err)
@@ -53,11 +59,37 @@ func runTimetable() {
 		fmt.Fprintf(os.Stderr, "timetable: decode input: %v\n", err)
 		os.Exit(1)
 	}
+
+	runlog.SetDefault(runlog.WithDatasetID(req.DatasetID))
+	runlog.Event("RUN_STARTED", "start", map[string]any{
+		"requests":   len(req.Requests),
+		"rooms":      len(req.Rooms),
+		"time_slots": len(req.TimeSlots),
+		"lecturers":  len(req.Lecturers),
+	})
+	runlog.Event("INPUT_DECODED", "done", map[string]any{
+		"dataset_id": req.DatasetID,
+	})
+
 	resp, err := timetable.Solve(req)
 	if err != nil {
+		runlog.Event("RUN_FAILED", "error", map[string]any{"message": err.Error()})
 		fmt.Fprintf(os.Stderr, "timetable: %v\n", err)
 		os.Exit(1)
 	}
+	if resp.Status == "FAILED" {
+		runlog.Event("RUN_FAILED", "error", map[string]any{"message": resp.Error})
+		fmt.Fprintf(os.Stderr, "timetable: %s\n", resp.Error)
+		os.Exit(1)
+	}
+
+	runlog.Event("RUN_FINISHED", "done", map[string]any{
+		"status":          resp.Status,
+		"solver_status":   resp.SolverStatus,
+		"objective_value": resp.ObjectiveValue,
+		"assignments":     len(resp.Assignments),
+	})
+
 	if err := writeJSON(os.Stdout, resp); err != nil {
 		fmt.Fprintf(os.Stderr, "timetable: encode output: %v\n", err)
 		os.Exit(1)

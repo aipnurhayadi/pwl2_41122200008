@@ -5,6 +5,7 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/app/timetable-runs/
 /vendor
 .env
 .env.backup

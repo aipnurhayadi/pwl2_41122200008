@@ -29,9 +29,15 @@ import {
 import EmployeeAppLayout from "@/components/layouts/EmployeeAppLayout";
 import TimetableAnalyticsSection from "@/components/dataset-detail/TimetableAnalyticsSection";
 import LecturerDatasetTabs from "@/components/dataset-detail/LecturerDatasetTabs";
+import ResultsTab from "@/components/dataset-detail/ResultsTab";
+import { useTimetableRun } from "@/context/TimetableRunContext";
 
 const PAGE_SIZE = 8;
 const LECTURER_TABS = new Set(["bwm", "preferences", "result"]);
+const ADMIN_TABS = [
+  { id: "overview", label: "Ringkasan" },
+  { id: "results", label: "Hasil Run" },
+];
 
 const DAY_LABELS = {
   MON: "Senin",
@@ -94,6 +100,9 @@ export default function DatasetDetail() {
   const [activeModal, setActiveModal] = useState(null);
   const [modalPage, setModalPage] = useState(1);
   const [runningSolver, setRunningSolver] = useState(false);
+  const [adminTab, setAdminTab] = useState("overview");
+  const [softCriteria, setSoftCriteria] = useState([]);
+  const { startPolling, activeRun } = useTimetableRun();
 
   const isAdmin = user?.role === "ADMIN";
   const isLecturer = user?.role === "LECTURER";
@@ -104,6 +113,25 @@ export default function DatasetDetail() {
   const setActiveTab = (tab) => {
     setSearchParams({ tab });
   };
+
+  useEffect(() => {
+    if (!isAdmin || !datasetId || !token) return;
+
+    const loadCriteria = async () => {
+      try {
+        const res = await fetch(`/api/datasets/${datasetId}/criteria`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          setSoftCriteria(await res.json());
+        }
+      } catch {
+        setSoftCriteria([]);
+      }
+    };
+
+    loadCriteria();
+  }, [isAdmin, datasetId, token]);
 
   useEffect(() => {
     if (!datasetId) return;
@@ -176,6 +204,11 @@ export default function DatasetDetail() {
       return;
     }
 
+    if (activeRun && ["QUEUED", "RUNNING"].includes(activeRun.status)) {
+      toast.error("Solver masih berjalan");
+      return;
+    }
+
     setRunningSolver(true);
     try {
       const res = await fetch(`/api/datasets/${datasetId}/timetable-runs/generate`, {
@@ -190,13 +223,21 @@ export default function DatasetDetail() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.detail ?? "Gagal menjalankan solver");
       }
-      toast.success("Solver berhasil dijalankan");
+      const body = await res.json();
+      startPolling(datasetId, body.id, body.dataset_name ?? tree?.dataset?.name ?? "");
+      toast.success("Solver dimulai — pantau progress di sidebar");
     } catch (e) {
       toast.error(e.message);
     } finally {
       setRunningSolver(false);
     }
   };
+
+  const solverBusy =
+    runningSolver ||
+    (activeRun &&
+      activeRun.datasetId === Number(datasetId) &&
+      ["QUEUED", "RUNNING"].includes(activeRun.status));
 
   if (loading) {
     if (isAdmin) {
@@ -265,11 +306,11 @@ export default function DatasetDetail() {
         {isAdmin && (
           <Button
             size="lg"
-            disabled={runningSolver}
+            disabled={solverBusy}
             onClick={handleRunSolver}
             className="h-12 min-w-[180px] gap-2.5 px-8 text-base font-bold shadow-lg shadow-primary/30 ring-2 ring-primary/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/35 active:scale-[0.98] disabled:hover:scale-100"
           >
-            {runningSolver ? (
+            {solverBusy ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
                 Menjalankan...
@@ -288,28 +329,54 @@ export default function DatasetDetail() {
 
   const adminBody = (
     <>
-      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        {quickStats.map((item) => (
-          <Card key={item.label} className="rounded-xl">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-muted-foreground">{item.label}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="text-2xl font-semibold">{item.value}</div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onClick={() => setActiveModal(item.modal)}
-              >
-                Lihat Data
-              </Button>
-            </CardContent>
-          </Card>
+      <section className="rounded-xl border bg-card p-2 flex flex-wrap gap-2">
+        {ADMIN_TABS.map((tab) => (
+          <Button
+            key={tab.id}
+            type="button"
+            variant={adminTab === tab.id ? "default" : "outline"}
+            size="sm"
+            onClick={() => setAdminTab(tab.id)}
+          >
+            {tab.label}
+          </Button>
         ))}
       </section>
 
-      <TimetableAnalyticsSection dataset={tree.dataset} tree={tree} />
+      {adminTab === "overview" && (
+        <>
+          <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {quickStats.map((item) => (
+              <Card key={item.label} className="rounded-xl">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm text-muted-foreground">{item.label}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="text-2xl font-semibold">{item.value}</div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setActiveModal(item.modal)}
+                  >
+                    Lihat Data
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </section>
+
+          <TimetableAnalyticsSection
+            dataset={tree.dataset}
+            tree={tree}
+            datasetId={datasetId}
+          />
+        </>
+      )}
+
+      {adminTab === "results" && (
+        <ResultsTab datasetId={datasetId} tree={tree} bwmCriteria={softCriteria} />
+      )}
 
       <Dialog open={activeModal !== null} onOpenChange={(open) => !open && setActiveModal(null)}>
         <DialogContent className="sm:max-w-3xl">

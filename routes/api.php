@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\LecturerAllowedCourseController;
 use App\Http\Controllers\Api\LecturerController;
 use App\Http\Controllers\Api\LecturerPreferenceController;
 use App\Http\Controllers\Api\RoomController;
+use App\Http\Controllers\Api\TimetableRunController;
 use App\Http\Controllers\Api\TimeSlotController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,6 +32,10 @@ Route::prefix('employees')->middleware('auth:sanctum')->group(function (): void 
     Route::get('/{employeeId}', [EmployeeController::class, 'show'])->whereNumber('employeeId');
     Route::put('/{employeeId}', [EmployeeController::class, 'update'])->whereNumber('employeeId');
     Route::delete('/{employeeId}', [EmployeeController::class, 'destroy'])->whereNumber('employeeId');
+});
+
+Route::middleware('auth:sanctum')->group(function (): void {
+    Route::get('/timetable-runs/active', [TimetableRunController::class, 'activeGlobal']);
 });
 
 Route::prefix('datasets')->group(function (): void {
@@ -85,6 +90,11 @@ Route::prefix('datasets')->group(function (): void {
         Route::get('/{datasetId}/bwm/my', [BwmController::class, 'myShow'])->whereNumber('datasetId');
         Route::put('/{datasetId}/bwm/my', [BwmController::class, 'myUpdate'])->whereNumber('datasetId');
         Route::get('/{datasetId}/lecturers/{lecturerId}/bwm', [BwmController::class, 'showForLecturer'])->whereNumber(['datasetId', 'lecturerId']);
+
+        Route::post('/{datasetId}/timetable-runs/generate', [TimetableRunController::class, 'generate'])->whereNumber('datasetId');
+        Route::get('/{datasetId}/timetable-runs/active', [TimetableRunController::class, 'active'])->whereNumber('datasetId');
+        Route::get('/{datasetId}/timetable-runs', [TimetableRunController::class, 'index'])->whereNumber('datasetId');
+        Route::get('/{datasetId}/timetable-runs/{runId}', [TimetableRunController::class, 'show'])->whereNumber(['datasetId', 'runId']);
 
         Route::get('/{datasetId}', [DatasetController::class, 'show'])->whereNumber('datasetId');
         Route::put('/{datasetId}', [DatasetController::class, 'update'])->whereNumber('datasetId');

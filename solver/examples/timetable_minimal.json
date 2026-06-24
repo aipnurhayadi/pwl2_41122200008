@@ -1,14 +1,11 @@
 {
   "dataset_id": 1,
   "weights": {
-    "SFT_001": 0.2,
-    "SFT_002": 0.15,
-    "SFT_003": 0.1,
-    "SFT_004": 0.1,
-    "SFT_005": 0.1,
-    "SFT_006": 0.1,
-    "SFT_007": 0.125,
-    "SFT_008": 0.125
+    "SFT_001": 0.25,
+    "SFT_002": 0.2,
+    "SFT_003": 0.15,
+    "SFT_004": 0.2,
+    "SFT_005": 0.2
   },
   "config": {
     "daily_session_limit": 2,
@@ -32,17 +29,13 @@
       "id": 1,
       "allowed_course_ids": [10],
       "allowed_time_slot_ids": [1, 2, 3],
-      "course_preferences": [{"course_id": 10, "rank_order": 1}],
-      "time_slot_preferences": [
-        {"day": "MON", "start_time": "08:00:00", "end_time": "11:20:00", "choice_order": 1}
-      ]
+      "course_preferences": [{"course_id": 10, "rank_order": 1}]
     },
     {
       "id": 2,
       "allowed_course_ids": [11],
       "allowed_time_slot_ids": [1, 2, 3],
-      "course_preferences": [{"course_id": 11, "rank_order": 1}],
-      "time_slot_preferences": []
+      "course_preferences": [{"course_id": 11, "rank_order": 1}]
     }
   ],
   "teaching_requests": [

@@ -175,6 +175,8 @@ class DatasetController extends Controller
                 'code' => $room->code,
                 'building_name' => $room->building_name,
                 'room_type' => $room->room_type,
+                'capacity' => $room->capacity,
+                'floor' => $room->floor,
             ]);
 
         $lecturers = Lecturer::query()
@@ -224,6 +226,9 @@ class DatasetController extends Controller
                 'code' => $classModel->code,
                 'name' => $classModel->name,
                 'major_name' => $classModel->major_name,
+                'capacity' => $classModel->capacity,
+                'semester' => $classModel->semester,
+                'academic_year' => $classModel->academic_year,
             ]);
 
         return response()->json([

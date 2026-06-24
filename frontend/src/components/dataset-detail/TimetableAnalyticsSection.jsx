@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { BarChart3 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BarChart3, Loader2 } from "lucide-react";
 import {
   Area,
   AreaChart,
@@ -37,7 +37,8 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { buildDatasetTimetableAnalytics } from "@/lib/mockTimetableAnalytics";
+import { buildTimetableAnalyticsFromRun } from "@/lib/timetableAnalytics";
+import { useAuth } from "@/context/AuthContext";
 
 const chartClassName = "h-[240px] w-full aspect-auto";
 
@@ -76,11 +77,9 @@ const lecturerChartConfig = {
   sessions: { label: "Sesi", color: "var(--chart-2)" },
 };
 
-const penaltyBreakdownChartConfig = {
-  idle_gap: { label: "Idle Gap", color: "var(--chart-1)" },
-  mobility: { label: "Mobilitas", color: "var(--chart-2)" },
-  daily_load: { label: "Beban Harian", color: "var(--chart-3)" },
-  balance: { label: "Balance", color: "var(--chart-4)" },
+const lecturerPenaltyChartConfig = {
+  penalty: { label: "Total Penalty", color: "var(--chart-3)" },
+  deviation: { label: "Deviasi Keadilan", color: "var(--chart-4)" },
 };
 
 const radarChartConfig = {
@@ -96,11 +95,77 @@ function fmtNumber(value, digits = 2) {
   return Number(value).toFixed(digits);
 }
 
-export default function TimetableAnalyticsSection({ dataset, tree }) {
-  const analytics = useMemo(
-    () => buildDatasetTimetableAnalytics(dataset, tree),
-    [dataset, tree],
-  );
+export default function TimetableAnalyticsSection({ dataset, tree, datasetId }) {
+  const { token } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [runDetail, setRunDetail] = useState(null);
+  const [runs, setRuns] = useState([]);
+  const [criteria, setCriteria] = useState([]);
+
+  useEffect(() => {
+    if (!datasetId || !token) {
+      setLoading(false);
+      return;
+    }
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [runsRes, criteriaRes] = await Promise.all([
+          fetch(`/api/datasets/${datasetId}/timetable-runs`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`/api/datasets/${datasetId}/criteria`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        const runsData = runsRes.ok ? await runsRes.json() : [];
+        const criteriaData = criteriaRes.ok ? await criteriaRes.json() : [];
+        setRuns(runsData);
+        setCriteria(criteriaData);
+
+        const latestCompleted = runsData.find((row) => row.status === "COMPLETED");
+        if (!latestCompleted) {
+          setRunDetail(null);
+          return;
+        }
+
+        const detailRes = await fetch(
+          `/api/datasets/${datasetId}/timetable-runs/${latestCompleted.id}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+        if (detailRes.ok) {
+          setRunDetail(await detailRes.json());
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [datasetId, token]);
+
+  const analytics = useMemo(() => {
+    if (!runDetail) return null;
+    return buildTimetableAnalyticsFromRun(dataset, tree, runDetail, runs, criteria);
+  }, [dataset, tree, runDetail, runs, criteria]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center rounded-lg border p-8 text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!analytics) {
+    return (
+      <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+        Belum ada hasil run timetable yang selesai. Jalankan solver terlebih dahulu.
+      </div>
+    );
+  }
 
   const { run } = analytics;
   const totalPieSessions = analytics.pieByDay.reduce(
@@ -123,21 +188,23 @@ export default function TimetableAnalyticsSection({ dataset, tree }) {
           <div className="flex items-center gap-2 flex-wrap">
             <BarChart3 className="h-5 w-5 text-primary" />
             <h2 className="text-lg font-semibold">Analitik Timetable Dataset</h2>
-            <Badge variant="outline">Data Dummy</Badge>
+            <Badge variant="outline">Data Run</Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
             Visualisasi hasil run terakhir untuk dataset{" "}
             <span className="font-medium text-foreground">{run.dataset_name}</span>{" "}
-            (<code className="text-xs">{run.dataset_code}</code>). Chart mengikuti pola{" "}
-            <a
-              href="https://ui.shadcn.com/charts/bar"
-              className="underline underline-offset-2"
-              target="_blank"
-              rel="noreferrer"
-            >
-              shadcn/ui charts
-            </a>
-            .
+            (<code className="text-xs">{run.dataset_code}</code>).
+            {run.fairness_index != null && (
+              <>
+                {" "}
+                Indeks keadilan penalty dosen:{" "}
+                <span className="font-medium text-foreground">
+                  {fmtNumber(run.fairness_index, 3)}
+                </span>
+                {" "}
+                (mendekati 1 = lebih merata).
+              </>
+            )}
           </p>
         </div>
         <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs space-y-0.5">
@@ -312,22 +379,20 @@ export default function TimetableAnalyticsSection({ dataset, tree }) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Komposisi Penalty Dosen</CardTitle>
+            <CardTitle className="text-base">Penalty & Deviasi Keadilan Dosen</CardTitle>
             <CardDescription>
-              Stacked bar · breakdown penalty per dosen dataset ini
+              Bar chart · total penalty dan deviasi dari rata-rata per dosen
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={penaltyBreakdownChartConfig} className={chartClassName}>
+            <ChartContainer config={lecturerPenaltyChartConfig} className={chartClassName}>
               <BarChart data={analytics.lecturerPenalties}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="lecturer" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="idle_gap" stackId="a" fill="var(--color-idle_gap)" />
-                <Bar dataKey="mobility" stackId="a" fill="var(--color-mobility)" />
-                <Bar dataKey="daily_load" stackId="a" fill="var(--color-daily_load)" />
-                <Bar dataKey="balance" stackId="a" fill="var(--color-balance)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="penalty" fill="var(--color-penalty)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="deviation" fill="var(--color-deviation)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ChartContainer>
           </CardContent>

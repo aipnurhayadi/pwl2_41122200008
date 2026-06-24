@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\ClassModel;
 use App\Models\Course;
+use App\Models\Criterion;
 use App\Models\Dataset;
 use App\Models\Employee;
 use App\Models\Lecturer;
@@ -11,6 +12,9 @@ use App\Models\Major;
 use App\Models\Room;
 use App\Models\TimeSlot;
 use App\Models\User;
+use App\Services\Bwm\BwmMatrixSampler;
+use App\Services\Bwm\BwmResponsePersister;
+use App\Services\Bwm\BwmValidator;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -33,14 +37,11 @@ class DatabaseSeeder extends Seeder
     private const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
     private const SOFT_CRITERIA = [
-        ['SFT_001', 'Preferensi Hari/Waktu Mengajar', 'Dosen mengajar pada hari dan rentang waktu yang sesuai dengan ketersediaannya (Time-Window).', true],
-        ['SFT_002', 'Preferensi Mata Kuliah', 'Dosen mengajar mata kuliah yang sesuai dengan prioritas/kompetensinya.', true],
-        ['SFT_003', 'Penghindaran Jeda Kosong', 'Meminimalkan waktu tunggu (idle time) yang terlalu lama bagi dosen di antara dua sesi kelas pada hari yang sama.', true],
-        ['SFT_004', 'Beban Mengajar Per Hari', 'Jumlah total sesi mengajar dosen per hari tidak melebihi batas ideal kelayakan fisik.', false],
-        ['SFT_005', 'Pemerataan Jadwal Mengajar', 'Jadwal mengajar dosen dan penggunaan gedung tersebar merata sepanjang minggu (tidak menumpuk di hari tertentu).', false],
-        ['SFT_006', 'Kesesuaian Fasilitas Ruangan', 'Mengupayakan mata kuliah praktikum bertempat di laboratorium dan kelas teori di ruang reguler.', false],
-        ['SFT_007', 'Konsistensi Ruangan', 'Mata kuliah yang sama diupayakan diajarkan di ruangan yang sama setiap minggunya untuk konsistensi.', false],
-        ['SFT_008', 'Preferensi Jarak/Mobilitas Lantai', 'Meminimalkan perpindahan lantai gedung yang ekstrem bagi dosen di antara dua sesi mengajar yang berurutan.', false],
+        ['SFT_001', 'Preferensi Mata Kuliah', 'Dosen mengajar mata kuliah yang sesuai dengan prioritas/kompetensinya.', true],
+        ['SFT_002', 'Penghindaran Jeda Kosong', 'Meminimalkan waktu tunggu (idle time) yang terlalu lama bagi dosen di antara dua sesi kelas pada hari yang sama.', false],
+        ['SFT_003', 'Beban Mengajar Per Hari', 'Jumlah total sesi mengajar dosen per hari tidak melebihi batas ideal kelayakan fisik.', false],
+        ['SFT_004', 'Pemerataan Jadwal Mengajar', 'Jadwal mengajar dosen dan penggunaan gedung tersebar merata sepanjang minggu (tidak menumpuk di hari tertentu).', false],
+        ['SFT_005', 'Preferensi Jarak/Mobilitas Lantai', 'Meminimalkan perpindahan lantai gedung yang ekstrem bagi dosen di antara dua sesi mengajar yang berurutan.', false],
     ];
 
     private const HARD_CRITERIA = [
@@ -82,10 +83,18 @@ class DatabaseSeeder extends Seeder
             $this->seedLecturerAllowedResources($dataset, (int) $adminUser->id);
 
             [$seededCoursePreferences, $skippedCoursePreferences] = $this->seedLecturerPreferencesForDataset($dataset, (int) $adminUser->id);
+            $seededBwmResponses = $this->seedBwmResponsesForDataset(
+                $dataset,
+                (int) $adminUser->id,
+                app(BwmMatrixSampler::class),
+                app(BwmValidator::class),
+                app(BwmResponsePersister::class),
+            );
 
             echo "Seeded {$seededCoursePreferences} lecturer course preferences for dataset id={$dataset->id}.\n";
             echo "Lecturers without course preferences: {$skippedCoursePreferences}\n";
             echo "Lecturer time slot preferences were not seeded.\n";
+            echo "Seeded {$seededBwmResponses} BWM responses for dataset id={$dataset->id}.\n";
         });
     }
 
@@ -957,6 +966,74 @@ class DatabaseSeeder extends Seeder
         }
 
         return [$seededCoursePreferences, $skippedCoursePreferences];
+    }
+
+    private function seedBwmResponsesForDataset(
+        Dataset $dataset,
+        int $createdBy,
+        BwmMatrixSampler $sampler,
+        BwmValidator $validator,
+        BwmResponsePersister $persister,
+    ): int {
+        $criterionIds = Criterion::query()
+            ->where('type', Criterion::TYPE_SOFT)
+            ->orderBy('code')
+            ->pluck('id')
+            ->map(static fn ($id): int => (int) $id)
+            ->all();
+
+        if (count($criterionIds) < 2) {
+            return 0;
+        }
+
+        $lecturers = Lecturer::query()
+            ->where('dataset_id', $dataset->id)
+            ->orderBy('id')
+            ->get();
+
+        $seeded = 0;
+
+        foreach ($lecturers as $index => $lecturer) {
+            $sample = $sampler->sampleForLecturerIndex($criterionIds, $index);
+            $bestId = $sample['best_criteria_id'];
+            $worstId = $sample['worst_criteria_id'];
+            $bestToOthers = $sample['best_to_others'];
+            $othersToWorst = $sample['others_to_worst'];
+
+            $validation = $validator->validate(
+                $criterionIds,
+                $bestId,
+                $worstId,
+                $bestToOthers,
+                $othersToWorst,
+            );
+
+            if (! $validation->isValid()) {
+                throw new \RuntimeException(sprintf(
+                    'Invalid seeded BWM for lecturer id=%d: %s',
+                    $lecturer->id,
+                    $validation->firstError() ?? 'unknown error',
+                ));
+            }
+
+            $persister->upsert(
+                datasetId: (int) $dataset->id,
+                lecturer: $lecturer,
+                createdBy: $createdBy,
+                bestCriteriaId: $bestId,
+                worstCriteriaId: $worstId,
+                criterionIds: $criterionIds,
+                bestToOthers: $bestToOthers,
+                othersToWorst: $othersToWorst,
+                weights: $validation->weights() ?? [],
+                ksi: $validation->ksi() ?? 0.0,
+                consistencyRatio: $validation->consistencyRatio(),
+            );
+
+            $seeded++;
+        }
+
+        return $seeded;
     }
 
     private function toIntOrNull(?string $value): ?int

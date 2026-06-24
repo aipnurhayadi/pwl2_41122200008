@@ -7,6 +7,7 @@ import (
 	"pwl2/solver/internal/candidate"
 	"pwl2/solver/internal/ilp"
 	"pwl2/solver/internal/model"
+	"pwl2/solver/internal/runlog"
 )
 
 // Solve menjalankan pipeline penjadwalan untuk satu dataset.
@@ -38,17 +39,39 @@ func Solve(req model.TimetableSolveRequest) (*model.TimetableSolveResponse, erro
 		cfg.SolverThreads = 2
 	}
 
-	weights := normalizeWeights(req.Weights)
+	var weights map[string]float64
+	if err := runlog.Phase("NORMALIZE_WEIGHTS", func() error {
+		weights = normalizeWeights(req.Weights)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 
-	candidates, err := candidate.Build(
-		req.Requests,
-		req.Rooms,
-		req.TimeSlots,
-		req.Lecturers,
-		weights,
-		cfg.MaxCandidatesPerRequest,
-	)
-	if err != nil {
+	var candidates map[int][]candidate.Assignment
+	if err := runlog.Phase("BUILD_CANDIDATES", func() error {
+		var buildErr error
+		candidates, buildErr = candidate.Build(
+			req.Requests,
+			req.Rooms,
+			req.TimeSlots,
+			req.Lecturers,
+			weights,
+			cfg.MaxCandidatesPerRequest,
+		)
+		if buildErr != nil {
+			return buildErr
+		}
+
+		totalCandidates := 0
+		for _, list := range candidates {
+			totalCandidates += len(list)
+		}
+		runlog.Event("BUILD_CANDIDATES", "metrics", map[string]any{
+			"requests":         len(req.Requests),
+			"total_candidates": totalCandidates,
+		})
+		return nil
+	}); err != nil {
 		return &model.TimetableSolveResponse{Status: "FAILED", Error: err.Error()}, nil
 	}
 
@@ -61,21 +84,25 @@ func Solve(req model.TimetableSolveRequest) (*model.TimetableSolveResponse, erro
 		courseByRequest[i] = tr.CourseID
 	}
 
-	result, err := ilp.Solve(
-		len(req.Requests),
-		courseByRequest,
-		candidates,
-		roomMap,
-		weights,
-		ilp.SolveOptions{
-			DailySessionLimit:       cfg.DailySessionLimit,
-			TransitionNeighborLimit: cfg.TransitionNeighborLimit,
-			TimeLimitSeconds:        cfg.SolverTimeLimitSeconds,
-			RelativeGap:             cfg.SolverRelativeGap,
-			Threads:                 cfg.SolverThreads,
-		},
-	)
-	if err != nil {
+	var result *ilp.SolveResult
+	if err := runlog.Phase("ILP_SOLVE", func() error {
+		var solveErr error
+		result, solveErr = ilp.Solve(
+			len(req.Requests),
+			courseByRequest,
+			candidates,
+			roomMap,
+			weights,
+			ilp.SolveOptions{
+				DailySessionLimit:       cfg.DailySessionLimit,
+				TransitionNeighborLimit: cfg.TransitionNeighborLimit,
+				TimeLimitSeconds:        cfg.SolverTimeLimitSeconds,
+				RelativeGap:             cfg.SolverRelativeGap,
+				Threads:                 cfg.SolverThreads,
+			},
+		)
+		return solveErr
+	}); err != nil {
 		return &model.TimetableSolveResponse{
 			Status:       "FAILED",
 			SolverStatus: "Error",
@@ -107,7 +134,7 @@ func Solve(req model.TimetableSolveRequest) (*model.TimetableSolveResponse, erro
 }
 
 func normalizeWeights(raw map[string]float64) map[string]float64 {
-	codes := []string{"SFT_001", "SFT_002", "SFT_003", "SFT_004", "SFT_005", "SFT_006", "SFT_007", "SFT_008"}
+	codes := []string{"SFT_001", "SFT_002", "SFT_003", "SFT_004", "SFT_005"}
 	out := map[string]float64{}
 	total := 0.0
 	for _, code := range codes {

@@ -6,17 +6,11 @@ package candidate
 import (
 	"fmt"
 	"sort"
-	"strings"
-	"time"
 
 	"pwl2/solver/internal/model"
 )
 
-const (
-	directSFT001 = "SFT_001"
-	directSFT002 = "SFT_002"
-	directSFT006 = "SFT_006"
-)
+const directSFT001 = "SFT_001"
 
 // Assignment adalah satu kandidat penempatan jadwal.
 type Assignment struct {
@@ -44,20 +38,12 @@ type requestContext struct {
 }
 
 type lookupData struct {
-	roomByID              map[int]model.Room
-	slotByID              map[int]model.TimeSlot
-	daySlots              map[string][]model.TimeSlot
-	slotPositionByID      map[int]int
-	lecturerAllowedSlots  map[int]map[int]struct{}
-	coursePrefs           map[int]map[int]int
-	timePrefs             map[int][]timePref
-}
-
-type timePref struct {
-	day         string
-	startMinute int
-	endMinute   int
-	choiceOrder int
+	roomByID             map[int]model.Room
+	slotByID             map[int]model.TimeSlot
+	daySlots             map[string][]model.TimeSlot
+	slotPositionByID     map[int]int
+	lecturerAllowedSlots map[int]map[int]struct{}
+	coursePrefs          map[int]map[int]int
 }
 
 // Build menghasilkan kandidat per teaching request.
@@ -177,7 +163,6 @@ func buildLookups(rooms []model.Room, slots []model.TimeSlot, lecturers []model.
 		slotPositionByID:     map[int]int{},
 		lecturerAllowedSlots: map[int]map[int]struct{}{},
 		coursePrefs:          map[int]map[int]int{},
-		timePrefs:            map[int][]timePref{},
 	}
 	for _, r := range rooms {
 		lk.roomByID[r.ID] = r
@@ -213,16 +198,6 @@ func buildLookups(rooms []model.Room, slots []model.TimeSlot, lecturers []model.
 			cp[p.CourseID] = p.RankOrder
 		}
 		lk.coursePrefs[l.ID] = cp
-		var prefs []timePref
-		for _, p := range l.TimeSlotPreferences {
-			prefs = append(prefs, timePref{
-				day:         p.Day,
-				startMinute: parseMinute(p.StartTime),
-				endMinute:   parseMinute(p.EndTime),
-				choiceOrder: p.ChoiceOrder,
-			})
-		}
-		lk.timePrefs[l.ID] = prefs
 	}
 	return lk
 }
@@ -252,10 +227,8 @@ func generateForRequest(ctx requestContext, lk lookupData, weights map[string]fl
 					continue
 				}
 
-				penalties := computeDirectScores(ctx, lecturerID, room, block, lk)
-				objectiveCost := weights[directSFT001]*penalties[directSFT001] +
-					weights[directSFT002]*penalties[directSFT002] +
-					weights[directSFT006]*penalties[directSFT006]
+				penalties := computeDirectScores(ctx, lecturerID, lk)
+				objectiveCost := weights[directSFT001] * penalties[directSFT001]
 
 				out = append(out, Assignment{
 					VariableKey:       fmt.Sprintf("r%d_l%d_room%d_start%d", ctx.index, lecturerID, room.ID, block[0].ID),
@@ -307,53 +280,17 @@ func iterCandidateBlocks(daySlots map[string][]model.TimeSlot, duration int, all
 	return blocks
 }
 
-func computeDirectScores(ctx requestContext, lecturerID int, room model.Room, block []model.TimeSlot, lk lookupData) map[string]float64 {
+func computeDirectScores(ctx requestContext, lecturerID int, lk lookupData) map[string]float64 {
 	penalties := map[string]float64{
 		directSFT001: 1.0,
-		directSFT002: 1.0,
-		directSFT006: 0.0,
 	}
 	rankPenalty := map[int]float64{1: 0.0, 2: 0.35, 3: 0.7}
 	if rank, ok := lk.coursePrefs[lecturerID][ctx.req.CourseID]; ok {
 		if p, ok2 := rankPenalty[rank]; ok2 {
-			penalties[directSFT002] = p
-		}
-	}
-	startMin := parseMinute(block[0].StartTime)
-	endMin := parseMinute(block[len(block)-1].EndTime)
-	for _, pref := range lk.timePrefs[lecturerID] {
-		if pref.day != block[0].Day {
-			continue
-		}
-		if startMin >= pref.startMinute && endMin <= pref.endMinute {
-			if p, ok := rankPenalty[pref.choiceOrder]; ok {
-				penalties[directSFT001] = p
-			}
-			break
-		}
-	}
-	if ctx.req.RequiredRoomType != nil {
-		reqType := strings.ToUpper(strings.TrimSpace(*ctx.req.RequiredRoomType))
-		roomType := ""
-		if room.RoomType != nil {
-			roomType = strings.ToUpper(strings.TrimSpace(*room.RoomType))
-		}
-		if roomType != reqType {
-			penalties[directSFT006] = 1.0
+			penalties[directSFT001] = p
 		}
 	}
 	return penalties
-}
-
-func parseMinute(value string) int {
-	value = strings.TrimSpace(value)
-	layouts := []string{"15:04:05", "15:04"}
-	for _, layout := range layouts {
-		if t, err := time.Parse(layout, value); err == nil {
-			return t.Hour()*60 + t.Minute()
-		}
-	}
-	return 0
 }
 
 func slotIDs(block []model.TimeSlot) []int {

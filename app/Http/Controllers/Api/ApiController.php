@@ -39,14 +39,19 @@ abstract class ApiController extends Controller
         return response()->json(['detail' => $message], 422);
     }
 
-    protected function findAccessibleDataset(int $datasetId, User $user): ?Dataset
+    protected function unprocessableWithMeta(string $message, array $extra = []): JsonResponse
     {
-        return $this->accessibleDatasetQuery($datasetId, $user)->first();
+        return response()->json(array_merge(['detail' => $message], $extra), 422);
     }
 
     protected function accessibleDatasetQuery(int $datasetId, User $user): Builder
     {
-        $query = Dataset::query()->where('id', $datasetId);
+        return $this->accessibleDatasetsQuery($user)->where('id', $datasetId);
+    }
+
+    protected function accessibleDatasetsQuery(User $user): Builder
+    {
+        $query = Dataset::query();
 
         if ($this->isAdmin($user)) {
             if ($user->employeeProfile) {
@@ -85,6 +90,11 @@ abstract class ApiController extends Controller
         }
 
         return Dataset::query()->whereRaw('1 = 0');
+    }
+
+    protected function findAccessibleDataset(int $datasetId, User $user): ?Dataset
+    {
+        return $this->accessibleDatasetQuery($datasetId, $user)->first();
     }
 
     /**

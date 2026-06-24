@@ -182,7 +182,11 @@ export default function LecturerDatasetTabs({ datasetId, tree, activeTab, onTabC
             ))}
           </section>
 
-          <TimetableAnalyticsSection dataset={tree.dataset} tree={tree} />
+          <TimetableAnalyticsSection
+            dataset={tree.dataset}
+            tree={tree}
+            datasetId={datasetId}
+          />
 
           <Dialog open={activeModal !== null} onOpenChange={(open) => !open && setActiveModal(null)}>
             <DialogContent className="sm:max-w-3xl">

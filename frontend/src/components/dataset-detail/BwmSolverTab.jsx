@@ -61,6 +61,9 @@ export default function BwmSolverTab({
     ? formatCriterionLabel(criteriaById.get(bwmWorstId))
     : "-";
 
+  const crValue = bwmCr !== null ? Number(bwmCr) : null;
+  const crIsAcceptable = crValue === null || crValue <= 0.1;
+
   return (
     <>
       <div>
@@ -90,6 +93,11 @@ export default function BwmSolverTab({
             <p>
               Daftar ini mencakup preferensi dosen dan kebijakan global yang akan
               dipakai sebagai komponen objective ILP.
+            </p>
+            <p className="mt-2">
+              Consistency Ratio (CR) ≤ 0.10 dianggap konsisten. CR di atas 0.10
+              tetap bisa disimpan, tetapi disarankan menyesuaikan nilai agar
+              perbandingan lebih konsisten.
             </p>
           </div>
 
@@ -290,7 +298,13 @@ export default function BwmSolverTab({
                 </p>
                 <p className="text-sm">
                   <span className="font-medium">Consistency Ratio:</span>{" "}
-                  {bwmCr !== null ? Number(bwmCr).toFixed(6) : "-"}
+                  <span
+                    className={
+                      crIsAcceptable ? "text-emerald-600" : "text-amber-600"
+                    }
+                  >
+                    {bwmCr !== null ? Number(bwmCr).toFixed(6) : "-"}
+                  </span>
                 </p>
               </div>
               <div className="rounded-md border overflow-hidden">

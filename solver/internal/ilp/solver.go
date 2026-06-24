@@ -15,10 +15,12 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
 
 	"pwl2/solver/internal/candidate"
 	"pwl2/solver/internal/cbc"
 	"pwl2/solver/internal/model"
+	"pwl2/solver/internal/runlog"
 )
 
 type lecturerDayKey struct {
@@ -87,22 +89,13 @@ func Solve(
 	lecturerDayGroups := map[lecturerDayKey][]string{}
 	lecturerAssignmentGroups := map[int][]string{}
 	lecturerDayCandidates := map[lecturerDayKey][]candidate.Assignment{}
-	lecturerCourseGroups := map[[2]int][]string{}
-	lecturerCourseRoomGroups := map[[2]int]map[int][]string{}
 
 	for _, list := range candidates {
 		for _, c := range list {
-			courseID := courseByRequest[c.RequestIndex]
 			lecturerAssignmentGroups[c.LecturerID] = append(lecturerAssignmentGroups[c.LecturerID], c.VariableKey)
 			ldKey := lecturerDayKey{c.LecturerID, c.Day}
 			lecturerDayGroups[ldKey] = append(lecturerDayGroups[ldKey], c.VariableKey)
 			lecturerDayCandidates[ldKey] = append(lecturerDayCandidates[ldKey], c)
-			lcKey := [2]int{c.LecturerID, courseID}
-			lecturerCourseGroups[lcKey] = append(lecturerCourseGroups[lcKey], c.VariableKey)
-			if lecturerCourseRoomGroups[lcKey] == nil {
-				lecturerCourseRoomGroups[lcKey] = map[int][]string{}
-			}
-			lecturerCourseRoomGroups[lcKey][c.RoomID] = append(lecturerCourseRoomGroups[lcKey][c.RoomID], c.VariableKey)
 			for _, slotID := range c.OccupiedSlotIDs {
 				lecturerSlotGroups[lecturerSlotKey{c.LecturerID, slotID}] = append(
 					lecturerSlotGroups[lecturerSlotKey{c.LecturerID, slotID}], c.VariableKey)
@@ -150,7 +143,7 @@ func Solve(
 		m.AddConstraint(fmt.Sprintf("used_ub_l%d", lecturerID), ub, cbc.SenseLE, 0)
 	}
 
-	// Beban harian dosen (SFT_004 di-enforce sebagai hard ceiling di referensi Python).
+	// Beban harian dosen (SFT_003 di-enforce sebagai hard ceiling).
 	for key, keys := range lecturerDayGroups {
 		expr := cbc.LinearExpr{}
 		for _, v := range keys {
@@ -159,7 +152,7 @@ func Solve(
 		m.AddConstraint(fmt.Sprintf("daily_load_l%d_%s", key.lecturerID, key.day), expr, cbc.SenseLE, float64(opts.DailySessionLimit))
 	}
 
-	// --- Soft: gap (SFT_003) dan mobilitas lantai (SFT_008) via transition vars ---
+	// --- Soft: gap (SFT_002) dan mobilitas lantai (SFT_005) via transition vars ---
 	gapPenaltyTerms := cbc.LinearExpr{}
 	floorMobilityTerms := cbc.LinearExpr{}
 
@@ -268,7 +261,7 @@ func Solve(
 		}
 	}
 
-	// --- Soft: pemerataan beban antar hari (SFT_005) ---
+	// --- Soft: pemerataan beban antar hari (SFT_004) ---
 	balanceVars := []string{}
 	lecturerDays := map[int]map[string]struct{}{}
 	for key := range lecturerDayGroups {
@@ -309,80 +302,48 @@ func Solve(
 		}
 	}
 
-	// --- Soft: konsistensi ruang per (dosen, mata kuliah) — SFT_007 ---
-	roomConsistencyTerms := cbc.LinearExpr{}
-	for lcKey, keys := range lecturerCourseGroups {
-		activeVar := fmt.Sprintf("course_active_l%d_c%d", lcKey[0], lcKey[1])
-		m.AddBinary(activeVar)
-		assignExpr := cbc.LinearExpr{}
-		for _, v := range keys {
-			assignExpr.Add(v, 1)
-		}
-		lb := cbc.LinearExpr{}
-		lb.Merge(assignExpr, 1)
-		lb.Add(activeVar, -1)
-		m.AddConstraint(activeVar+"_lb", lb, cbc.SenseGE, 0)
-		ub := cbc.LinearExpr{}
-		ub.Merge(assignExpr, 1)
-		ub.Add(activeVar, -float64(len(keys)))
-		m.AddConstraint(activeVar+"_ub", ub, cbc.SenseLE, 0)
-
-		var roomUsageVars []string
-		for roomID, roomKeys := range lecturerCourseRoomGroups[lcKey] {
-			roomUsed := fmt.Sprintf("room_used_l%d_c%d_r%d", lcKey[0], lcKey[1], roomID)
-			m.AddBinary(roomUsed)
-			re := cbc.LinearExpr{}
-			for _, v := range roomKeys {
-				re.Add(v, 1)
-			}
-			rbl := cbc.LinearExpr{}
-			rbl.Merge(re, 1)
-			rbl.Add(roomUsed, -1)
-			m.AddConstraint(roomUsed+"_lb", rbl, cbc.SenseGE, 0)
-			rub := cbc.LinearExpr{}
-			rub.Merge(re, 1)
-			rub.Add(roomUsed, -float64(len(roomKeys)))
-			m.AddConstraint(roomUsed+"_ub", rub, cbc.SenseLE, 0)
-			roomUsageVars = append(roomUsageVars, roomUsed)
-		}
-		if len(roomUsageVars) > 0 {
-			term := cbc.LinearExpr{}
-			for _, rv := range roomUsageVars {
-				term.Add(rv, 1)
-			}
-			term.Add(activeVar, -1)
-			roomConsistencyTerms.Merge(term, 1)
-		}
-	}
-
 	// --- Fungsi objektif ---
 	for _, c := range decisionVars {
 		m.Objective.Add(c.VariableKey, c.ObjectiveCost)
 	}
-	w003 := weights["SFT_003"]
+	w002 := weights["SFT_002"]
+	w004 := weights["SFT_004"]
 	w005 := weights["SFT_005"]
-	w007 := weights["SFT_007"]
-	w008 := weights["SFT_008"]
-	m.Objective.Merge(gapPenaltyTerms, w003)
-	m.Objective.Merge(floorMobilityTerms, w008)
+	m.Objective.Merge(gapPenaltyTerms, w002)
+	m.Objective.Merge(floorMobilityTerms, w005)
 	for _, bv := range balanceVars {
-		m.Objective.Add(bv, w005)
+		m.Objective.Add(bv, w004)
 	}
-	m.Objective.Merge(roomConsistencyTerms, w007)
 
 	coveragePriority := coveragePriority(requestCount, len(lecturerUsedVars), weights)
 	for _, usedVar := range lecturerUsedVars {
 		m.Objective.Add(usedVar, -coveragePriority)
 	}
 
+	runlog.Event("BUILD_MODEL", "done", map[string]any{
+		"variables":   len(m.VarOrder),
+		"constraints": len(m.Constraints),
+		"requests":    requestCount,
+	})
+
+	cbcStart := time.Now()
 	result, err := m.Solve(cbc.SolveOptions{
 		TimeLimitSeconds: opts.TimeLimitSeconds,
 		RelativeGap:      opts.RelativeGap,
 		Threads:          opts.Threads,
 	})
 	if err != nil {
+		runlog.Event("CBC_SOLVE", "error", map[string]any{
+			"duration_ms": time.Since(cbcStart).Milliseconds(),
+			"message":     err.Error(),
+		})
 		return nil, err
 	}
+	runlog.Event("CBC_SOLVE", "done", map[string]any{
+		"duration_ms":     time.Since(cbcStart).Milliseconds(),
+		"status":          result.Status,
+		"objective_value": result.Objective,
+	})
 	status := result.Status
 	if isBadStatus(status) {
 		return nil, fmt.Errorf("ILP solver status: %s", status)
@@ -442,7 +403,6 @@ func calculateSelectedObjective(
 
 	lecturerDayLoads := map[int]map[string]int{}
 	lecturerDayCandidates := map[lecturerDayKey][]candidate.Assignment{}
-	lecturerCourseRooms := map[[2]int]map[int]struct{}{}
 
 	for _, c := range selected {
 		if lecturerDayLoads[c.LecturerID] == nil {
@@ -451,12 +411,6 @@ func calculateSelectedObjective(
 		lecturerDayLoads[c.LecturerID][c.Day]++
 		ldKey := lecturerDayKey{c.LecturerID, c.Day}
 		lecturerDayCandidates[ldKey] = append(lecturerDayCandidates[ldKey], c)
-		courseID := courseByRequest[c.RequestIndex]
-		lcKey := [2]int{c.LecturerID, courseID}
-		if lecturerCourseRooms[lcKey] == nil {
-			lecturerCourseRooms[lcKey] = map[int]struct{}{}
-		}
-		lecturerCourseRooms[lcKey][c.RoomID] = struct{}{}
 	}
 
 	balancePenalty := 0.0
@@ -486,18 +440,10 @@ func calculateSelectedObjective(
 		}
 	}
 
-	roomConsistencyPenalty := 0.0
-	for _, roomSet := range lecturerCourseRooms {
-		if len(roomSet) > 1 {
-			roomConsistencyPenalty += float64(len(roomSet) - 1)
-		}
-	}
-
 	return directTotal +
-		weights["SFT_003"]*gapPenalty +
-		weights["SFT_005"]*balancePenalty +
-		weights["SFT_007"]*roomConsistencyPenalty +
-		weights["SFT_008"]*floorPenalty
+		weights["SFT_002"]*gapPenalty +
+		weights["SFT_004"]*balancePenalty +
+		weights["SFT_005"]*floorPenalty
 }
 
 func isBadStatus(status string) bool {

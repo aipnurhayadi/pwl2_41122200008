@@ -140,7 +140,13 @@ export default function useLecturerBwm(datasetId) {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail ?? "Gagal menyimpan BWM");
+        const message = body.detail ?? "Gagal menyimpan BWM";
+        if (Array.isArray(body.suggestions) && body.suggestions.length > 0) {
+          toast.error(message);
+          toast(body.suggestions[0], { description: body.suggestions.slice(1).join(" ") });
+          return;
+        }
+        throw new Error(message);
       }
 
       const body = await res.json();
@@ -148,6 +154,14 @@ export default function useLecturerBwm(datasetId) {
       setBwmKsi(body.ksi ?? null);
       setBwmCr(body.consistency_ratio ?? null);
       toast.success("Kuesioner BWM berhasil disimpan");
+      if (Array.isArray(body.warnings) && body.warnings.length > 0) {
+        toast.warning(body.warnings[0]);
+      }
+      if (Array.isArray(body.suggestions) && body.suggestions.length > 0) {
+        toast(body.suggestions[0], {
+          description: body.suggestions.slice(1, 3).join(" "),
+        });
+      }
     } catch (e) {
       toast.error(e.message);
     } finally {
