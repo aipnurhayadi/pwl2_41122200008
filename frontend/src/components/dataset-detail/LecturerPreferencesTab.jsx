@@ -6,8 +6,6 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import CoursePreferenceSortableList from "@/components/dataset-detail/CoursePreferenceSortableList";
 
-const MAX_RANKED_COURSES = 7;
-
 export default function LecturerPreferencesTab({ datasetId, embedded = false }) {
   const { token } = useAuth();
 
@@ -92,10 +90,6 @@ export default function LecturerPreferencesTab({ datasetId, embedded = false }) 
 
     if (rankedCourseIds.length < 1) {
       return "Minimal 1 mata kuliah pada ranking.";
-    }
-
-    if (rankedCourseIds.length > MAX_RANKED_COURSES) {
-      return `Maksimal ${MAX_RANKED_COURSES} mata kuliah pada ranking.`;
     }
 
     const allowedIds = new Set(allowedCourseIds.map(String));
@@ -190,7 +184,10 @@ export default function LecturerPreferencesTab({ datasetId, embedded = false }) 
 
       <section className="rounded-xl border bg-card p-5 space-y-4">
         <div>
-          <h3 className="text-lg font-semibold">Ranking Mata Kuliah (1-{MAX_RANKED_COURSES})</h3>
+          <h3 className="text-lg font-semibold">
+            Ranking Mata Kuliah
+            {allowedCourseIds.length > 0 ? ` (${allowedCourseIds.length})` : ""}
+          </h3>
           <p className="text-sm text-muted-foreground">
             Mata kuliah ditetapkan oleh admin. Drag untuk mengubah urutan prioritas.
           </p>

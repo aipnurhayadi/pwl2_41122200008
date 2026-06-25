@@ -190,10 +190,6 @@ class LecturerPreferenceController extends ApiController
             return 'course_rankings must contain at least 1 item';
         }
 
-        if (count($courseRankings) > 7) {
-            return 'course_rankings must contain 1 to 7 items';
-        }
-
         $allowedIds = LecturerAllowedCourse::query()
             ->where('lecturer_id', $lecturer->id)
             ->pluck('course_id')
@@ -201,6 +197,10 @@ class LecturerPreferenceController extends ApiController
 
         if ($allowedIds === []) {
             return 'No allowed courses configured for this lecturer';
+        }
+
+        if (count($courseRankings) !== count($allowedIds)) {
+            return 'course_rankings must rank all allowed courses for this lecturer';
         }
 
         $courseIds = [];

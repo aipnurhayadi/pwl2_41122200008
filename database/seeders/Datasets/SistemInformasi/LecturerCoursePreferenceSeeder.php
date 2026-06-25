@@ -6,6 +6,7 @@ use App\Models\Course;
 use App\Models\Dataset;
 use App\Models\Lecturer;
 use Database\Seeders\Concerns\InteractsWithDatasetCsv;
+use Database\Seeders\Support\LecturerExpertiseCourseMatcher;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -18,14 +19,17 @@ class LecturerCoursePreferenceSeeder extends Seeder
      */
     public function run(Dataset $dataset, int $createdBy): array
     {
+        $matcher = new LecturerExpertiseCourseMatcher;
+        $lecturerRows = $this->readCsvRows($this->csvDir().DIRECTORY_SEPARATOR.'lecturers.csv');
+        $courseRows = $this->readCsvRows($this->csvDir().DIRECTORY_SEPARATOR.'courses.csv');
+        $mappings = $matcher->buildNidnMappings($lecturerRows, $courseRows);
+
         $lecturers = Lecturer::query()->with('employee.user')->where('dataset_id', $dataset->id)->get();
         $courses = Course::query()->where('dataset_id', $dataset->id)->get()->all();
         $courseByCode = [];
         foreach ($courses as $course) {
             $courseByCode[$course->code] = $course;
         }
-
-        $mappings = $this->readLecturerCoursesCsv();
 
         DB::table('lecturer_course_preferences')->where('dataset_id', $dataset->id)->delete();
         DB::table('lecturer_time_slot_preferences')->where('dataset_id', $dataset->id)->delete();

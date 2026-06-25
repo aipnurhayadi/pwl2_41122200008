@@ -24,6 +24,10 @@ final class SeederDefaults
 
     public const DEFAULT_ROOM_CAPACITY = 40;
 
+    public const CLASSES_PER_SEMESTER = 1;
+
+    public const DEFAULT_SLOT_MINUTES = 60;
+
     public const BREAK_START = '11:40';
 
     public const BREAK_END = '13:00';

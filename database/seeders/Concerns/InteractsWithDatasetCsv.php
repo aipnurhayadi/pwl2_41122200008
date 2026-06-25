@@ -28,7 +28,6 @@ trait InteractsWithDatasetCsv
             $csvDir.DIRECTORY_SEPARATOR.'rooms.csv',
             $csvDir.DIRECTORY_SEPARATOR.'timeslots.csv',
             $csvDir.DIRECTORY_SEPARATOR.'classes.csv',
-            $csvDir.DIRECTORY_SEPARATOR.'lecturer_courses.csv',
         ];
     }
 
@@ -101,75 +100,6 @@ trait InteractsWithDatasetCsv
         }
 
         return str_pad($digits, 10, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * @return array<string, list<array{code: string, rank: int}>>
-     */
-    protected function readLecturerCoursesCsv(): array
-    {
-        $rows = $this->readCsvRows($this->csvDir().DIRECTORY_SEPARATOR.'lecturer_courses.csv');
-        $byNidn = [];
-
-        foreach ($rows as $row) {
-            $nidn = $this->normalizeNidn($row['lecturer_nidn'] ?? null);
-            $code = trim((string) ($row['course_code'] ?? ''));
-            $rank = (int) ($row['rank_order'] ?? 0);
-
-            if ($nidn === '' || $code === '' || $rank === 0) {
-                continue;
-            }
-
-            $byNidn[$nidn][] = ['code' => $code, 'rank' => $rank];
-        }
-
-        foreach ($byNidn as $nidn => $entries) {
-            usort(
-                $byNidn[$nidn],
-                static fn (array $left, array $right): int => $left['rank'] <=> $right['rank']
-            );
-        }
-
-        return $byNidn;
-    }
-
-    /**
-     * @return list<string>
-     */
-    protected function lecturerLinkedCourseCodes(): array
-    {
-        $rows = $this->readCsvRows($this->csvDir().DIRECTORY_SEPARATOR.'lecturer_courses.csv');
-        $codes = [];
-
-        foreach ($rows as $row) {
-            $code = trim((string) ($row['course_code'] ?? ''));
-            if ($code !== '') {
-                $codes[$code] = true;
-            }
-        }
-
-        return array_keys($codes);
-    }
-
-    protected function validateLecturerCourseCodesExistInCoursesCsv(): void
-    {
-        $courseRows = $this->readCsvRows($this->csvDir().DIRECTORY_SEPARATOR.'courses.csv');
-        $courseCodes = [];
-
-        foreach ($courseRows as $row) {
-            $code = trim((string) ($row['code'] ?? ''));
-            if ($code !== '') {
-                $courseCodes[$code] = true;
-            }
-        }
-
-        foreach ($this->lecturerLinkedCourseCodes() as $code) {
-            if (! isset($courseCodes[$code])) {
-                throw new \RuntimeException(
-                    "Course code {$code} in lecturer_courses.csv not found in courses.csv"
-                );
-            }
-        }
     }
 
     protected function toIntOrNull(?string $value): ?int

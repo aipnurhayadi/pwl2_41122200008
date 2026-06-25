@@ -20,7 +20,7 @@ class TimeSlotSeeder extends Seeder
         }
 
         $config = $rows[0];
-        $minutes = (int) ($config['per_sks_minutes'] ?: 40);
+        $minutes = (int) ($config['per_sks_minutes'] ?: SeederDefaults::DEFAULT_SLOT_MINUTES);
         $startTime = $config['start_time'] ?: '07:00';
         $endTime = $config['end_time'] ?: '23:00';
         $blocks = $this->buildSlotsFromRange($startTime, $endTime, $minutes);

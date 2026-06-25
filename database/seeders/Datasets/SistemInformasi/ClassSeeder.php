@@ -16,9 +16,11 @@ class ClassSeeder extends Seeder
     public function run(Dataset $dataset, int $creatorId, Major $major): void
     {
         $rows = $this->readCsvRows($this->csvDir().DIRECTORY_SEPARATOR.'classes.csv');
+        $selectedRows = $this->selectRowsPerSemester($rows);
+        $skipped = count($rows) - count($selectedRows);
         $inserted = 0;
 
-        foreach ($rows as $index => $row) {
+        foreach ($selectedRows as $index => $row) {
             $name = trim((string) ($row['name'] ?? ''));
             if ($name === '') {
                 continue;
@@ -39,6 +41,30 @@ class ClassSeeder extends Seeder
             $inserted++;
         }
 
-        echo "Inserted {$inserted} classes from CSV.\n";
+        echo "Inserted {$inserted} classes from CSV ({$skipped} rows skipped by CLASSES_PER_SEMESTER cap).\n";
+    }
+
+    /**
+     * @param  list<array<string, string>>  $rows
+     * @return list<array<string, string>>
+     */
+    private function selectRowsPerSemester(array $rows): array
+    {
+        $grouped = [];
+        foreach ($rows as $row) {
+            $academicYear = $this->toIntOrNull($row['academic_year'] ?? null);
+            $semester = $this->toIntOrNull($row['semester'] ?? null);
+            $key = sprintf('%s:%s', $academicYear ?? 'null', $semester ?? 'null');
+            $grouped[$key][] = $row;
+        }
+
+        $selected = [];
+        foreach ($grouped as $groupRows) {
+            foreach (array_slice($groupRows, 0, SeederDefaults::CLASSES_PER_SEMESTER) as $row) {
+                $selected[] = $row;
+            }
+        }
+
+        return $selected;
     }
 }

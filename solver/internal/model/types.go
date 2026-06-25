@@ -16,6 +16,7 @@ type TimetableSolveRequest struct {
 type TimetableSolverConfig struct {
 	DailySessionLimit        int     `json:"daily_session_limit"`
 	MaxCandidatesPerRequest  int     `json:"max_candidates_per_request"`
+	MaxRoomsPerRequest       int     `json:"max_rooms_per_request"`
 	TransitionNeighborLimit  int     `json:"transition_neighbor_limit"`
 	SolverTimeLimitSeconds   int     `json:"solver_time_limit_seconds"`
 	SolverRelativeGap        float64 `json:"solver_relative_gap"`
@@ -39,11 +40,9 @@ type TimeSlot struct {
 }
 
 type LecturerInput struct {
-	ID                  int                  `json:"id"`
-	AllowedCourseIDs    []int                `json:"allowed_course_ids"`
-	AllowedTimeSlotIDs  []int                `json:"allowed_time_slot_ids"`
-	CoursePreferences   []CoursePreference   `json:"course_preferences"`
-	TimeSlotPreferences []TimeSlotPreference `json:"time_slot_preferences"`
+	ID                int                `json:"id"`
+	AllowedCourseIDs  []int              `json:"allowed_course_ids"`
+	CoursePreferences []CoursePreference `json:"course_preferences"`
 }
 
 type CoursePreference struct {
@@ -51,23 +50,14 @@ type CoursePreference struct {
 	RankOrder int `json:"rank_order"`
 }
 
-type TimeSlotPreference struct {
-	Day         string `json:"day"`
-	StartTime   string `json:"start_time"`
-	EndTime     string `json:"end_time"`
-	ChoiceOrder int    `json:"choice_order"`
-}
-
 type TeachingRequest struct {
-	ClassID                 int     `json:"class_id"`
-	CourseID                int     `json:"course_id"`
-	LecturerID              *int    `json:"lecturer_id"`
-	DurationSlots           int     `json:"duration_slots"`
-	ExpectedCapacity        *int    `json:"expected_capacity"`
-	AllowedRoomIDs          []int   `json:"allowed_room_ids"`
-	AllowedStartTimeSlotIDs []int   `json:"allowed_start_time_slot_ids"`
-	RequiredRoomType        *string `json:"required_room_type"`
-	ClassCapacity           *int    `json:"class_capacity"`
+	ClassID          int     `json:"class_id"`
+	CourseID         int     `json:"course_id"`
+	LecturerID       *int    `json:"lecturer_id"`
+	DurationSlots    int     `json:"duration_slots"`
+	ExpectedCapacity *int    `json:"expected_capacity"`
+	RequiredRoomType *string `json:"required_room_type"`
+	ClassCapacity    *int    `json:"class_capacity"`
 }
 
 type TimetableSolveResponse struct {

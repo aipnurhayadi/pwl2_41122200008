@@ -22,12 +22,13 @@ class TimetablePayloadBuilder
     {
         $aggregation = $this->weightAggregator->aggregateForDataset($datasetId);
 
-        return [
+        $payload = [
             'dataset_id' => $datasetId,
             'weights' => $aggregation['weights'],
             'config' => [
                 'daily_session_limit' => config('timetable.daily_session_limit'),
                 'max_candidates_per_request' => config('timetable.max_candidates_per_request'),
+                'max_rooms_per_request' => config('timetable.max_rooms_per_request'),
                 'transition_neighbor_limit' => config('timetable.transition_neighbor_limit'),
                 'solver_time_limit_seconds' => config('timetable.solver_time_limit_seconds'),
                 'solver_relative_gap' => config('timetable.solver_relative_gap'),
@@ -39,6 +40,38 @@ class TimetablePayloadBuilder
             'teaching_requests' => $this->requestBuilder->buildForDataset($datasetId),
             '_criterion_ids' => $aggregation['criterion_ids'],
         ];
+
+        $this->assertPayloadReady($payload);
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function assertPayloadReady(array $payload): void
+    {
+        foreach (['rooms', 'time_slots', 'lecturers', 'teaching_requests'] as $key) {
+            if (! array_key_exists($key, $payload)) {
+                throw new \RuntimeException("Solver payload is missing required key: {$key}");
+            }
+        }
+
+        if ($payload['rooms'] === []) {
+            throw new \RuntimeException('Dataset has no rooms; seed or configure rooms.csv');
+        }
+
+        if ($payload['time_slots'] === []) {
+            throw new \RuntimeException('Dataset has no time slots; seed or configure timeslots.csv');
+        }
+
+        if ($payload['teaching_requests'] === []) {
+            throw new \RuntimeException('Dataset has no teaching requests; check classes and courses matching');
+        }
+
+        if ($payload['lecturers'] === []) {
+            throw new \RuntimeException('Dataset has no lecturers; seed lecturer assignments');
+        }
     }
 
     /**
@@ -108,9 +141,7 @@ class TimetablePayloadBuilder
             return [
                 'id' => $lecturer->id,
                 'allowed_course_ids' => $allowedCourseIds,
-                'allowed_time_slot_ids' => [],
                 'course_preferences' => $coursePreferences,
-                'time_slot_preferences' => [],
             ];
         })->all();
     }

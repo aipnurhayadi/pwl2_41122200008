@@ -25,7 +25,6 @@ class SistemInformasiDatasetSeeder extends Seeder
         }
 
         $this->validateCsvFiles();
-        $this->validateLecturerCourseCodesExistInCoursesCsv();
 
         $creatorId = (int) $adminUser->id;
         $datasetId = (int) $dataset->id;
@@ -45,7 +44,7 @@ class SistemInformasiDatasetSeeder extends Seeder
         $this->callWith(ClassSeeder::class, ['dataset' => $dataset, 'creatorId' => $creatorId, 'major' => $major]);
         $this->callWith(TimeSlotSeeder::class, ['dataset' => $dataset, 'creatorId' => $creatorId]);
         $this->callWith(LecturerSeeder::class, ['dataset' => $dataset, 'creatorId' => $creatorId]);
-        $this->callWith(LecturerAllowedCourseSeeder::class, ['dataset' => $dataset, 'creatorId' => $creatorId]);
+        $this->callWith(LecturerExpertiseAllowedCourseSeeder::class, ['dataset' => $dataset, 'creatorId' => $creatorId]);
 
         $this->callWith(
             LecturerCoursePreferenceSeeder::class,

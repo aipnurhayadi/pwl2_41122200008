@@ -89,6 +89,73 @@ function getModalRows(key, tree) {
   }
 }
 
+function AdminSolverRunControl({ datasetId, tree, token }) {
+  const { startPolling, activeRun } = useTimetableRun();
+  const [runningSolver, setRunningSolver] = useState(false);
+
+  const handleRunSolver = async () => {
+    if (!token || !datasetId) {
+      toast.error("Login diperlukan untuk menjalankan solver");
+      return;
+    }
+
+    if (activeRun && ["QUEUED", "RUNNING"].includes(activeRun.status)) {
+      toast.error("Solver masih berjalan");
+      return;
+    }
+
+    setRunningSolver(true);
+    try {
+      const res = await fetch(`/api/datasets/${datasetId}/timetable-runs/generate`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail ?? "Gagal menjalankan solver");
+      }
+      const body = await res.json();
+      startPolling(datasetId, body.id, body.dataset_name ?? tree?.dataset?.name ?? "");
+      toast.success("Solver dimulai — pantau progress di sidebar");
+    } catch (e) {
+      toast.error(e.message);
+    } finally {
+      setRunningSolver(false);
+    }
+  };
+
+  const solverBusy =
+    runningSolver ||
+    (activeRun &&
+      activeRun.datasetId === Number(datasetId) &&
+      ["QUEUED", "RUNNING"].includes(activeRun.status));
+
+  return (
+    <Button
+      size="lg"
+      disabled={solverBusy}
+      onClick={handleRunSolver}
+      className="h-12 min-w-[180px] gap-2.5 px-8 text-base font-bold shadow-lg shadow-primary/30 ring-2 ring-primary/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/35 active:scale-[0.98] disabled:hover:scale-100"
+    >
+      {solverBusy ? (
+        <>
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Menjalankan...
+        </>
+      ) : (
+        <>
+          <Play className="h-5 w-5 fill-current" />
+          Run Solver
+        </>
+      )}
+    </Button>
+  );
+}
+
 export default function DatasetDetail() {
   const { datasetId } = useParams();
   const { token, user } = useAuth();
@@ -99,10 +166,8 @@ export default function DatasetDetail() {
   const [error, setError] = useState(null);
   const [activeModal, setActiveModal] = useState(null);
   const [modalPage, setModalPage] = useState(1);
-  const [runningSolver, setRunningSolver] = useState(false);
   const [adminTab, setAdminTab] = useState("overview");
   const [softCriteria, setSoftCriteria] = useState([]);
-  const { startPolling, activeRun } = useTimetableRun();
 
   const isAdmin = user?.role === "ADMIN";
   const isLecturer = user?.role === "LECTURER";
@@ -198,47 +263,6 @@ export default function DatasetDetail() {
   const backTo = isLecturer ? "/my-datasets" : "/datasets";
   const navBackLink = <></>;
 
-  const handleRunSolver = async () => {
-    if (!token || !datasetId) {
-      toast.error("Login diperlukan untuk menjalankan solver");
-      return;
-    }
-
-    if (activeRun && ["QUEUED", "RUNNING"].includes(activeRun.status)) {
-      toast.error("Solver masih berjalan");
-      return;
-    }
-
-    setRunningSolver(true);
-    try {
-      const res = await fetch(`/api/datasets/${datasetId}/timetable-runs/generate`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail ?? "Gagal menjalankan solver");
-      }
-      const body = await res.json();
-      startPolling(datasetId, body.id, body.dataset_name ?? tree?.dataset?.name ?? "");
-      toast.success("Solver dimulai — pantau progress di sidebar");
-    } catch (e) {
-      toast.error(e.message);
-    } finally {
-      setRunningSolver(false);
-    }
-  };
-
-  const solverBusy =
-    runningSolver ||
-    (activeRun &&
-      activeRun.datasetId === Number(datasetId) &&
-      ["QUEUED", "RUNNING"].includes(activeRun.status));
-
   if (loading) {
     if (isAdmin) {
       return (
@@ -304,24 +328,7 @@ export default function DatasetDetail() {
           </p>
         </div>
         {isAdmin && (
-          <Button
-            size="lg"
-            disabled={solverBusy}
-            onClick={handleRunSolver}
-            className="h-12 min-w-[180px] gap-2.5 px-8 text-base font-bold shadow-lg shadow-primary/30 ring-2 ring-primary/25 transition-all hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/35 active:scale-[0.98] disabled:hover:scale-100"
-          >
-            {solverBusy ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Menjalankan...
-              </>
-            ) : (
-              <>
-                <Play className="h-5 w-5 fill-current" />
-                Run Solver
-              </>
-            )}
-          </Button>
+          <AdminSolverRunControl datasetId={datasetId} tree={tree} token={token} />
         )}
       </div>
     </section>

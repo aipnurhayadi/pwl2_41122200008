@@ -97,6 +97,31 @@ Config Laravel: `TIMETABLE_ARTIFACTS_PATH`, `TIMETABLE_ARTIFACT_RETENTION_DAYS` 
 
 Field `weights` di input harus sudah berisi bobot agregat (`SFT_001`–`SFT_005`) dari `bwm_weights`.
 
+### Kontrak `TimetableSolveRequest` (field wajib)
+
+Laravel membangun payload via `TimetablePayloadBuilder` dan menyimpannya di `*_request.json`. Field wajib untuk solver:
+
+| Field | Keterangan |
+|-------|------------|
+| `dataset_id` | ID dataset |
+| `weights` | Bobot agregat BWM per kode kriteria |
+| `config` | Batas solver (`daily_session_limit`, `max_candidates_per_request`, dll.) |
+| `rooms` | Daftar ruang dataset (kapasitas, tipe, lantai) |
+| `time_slots` | **Daftar slot waktu dataset** — bukan preferensi dosen; dipakai candidate builder untuk blok jadwal |
+| `lecturers` | Dosen + `allowed_course_ids` + `course_preferences` |
+| `teaching_requests` | Permintaan jadwal per pasangan kelas–mata kuliah |
+
+Contoh `time_slots` (lihat juga `examples/timetable_minimal.json`):
+
+```json
+"time_slots": [
+  {"id": 1, "code": "MON_1", "day": "MON", "start_time": "08:00:00", "end_time": "09:40:00"},
+  {"id": 2, "code": "TUE_1", "day": "TUE", "start_time": "08:00:00", "end_time": "09:40:00"}
+]
+```
+
+Jika `time_slots` kosong, Laravel gagal di preflight (`TimetablePayloadBuilder`) dan Go solver mengembalikan `time_slots is required and must not be empty`.
+
 - **Input:** file JSON atau stdin
 - **Output:** JSON ke stdout
 - **Error:** pesan ke stderr, exit code `1`
@@ -107,7 +132,7 @@ Field `weights` di input harus sudah berisi bobot agregat (`SFT_001`–`SFT_005`
 solver/
 ├── cmd/solver/main.go       # entrypoint CLI
 ├── internal/
-│   ├── candidate/           → filter HRD_003/004 + pruning soft
+│   ├── candidate/           → filter HRD_003 + pruning (dominance + bucket)
 │   ├── ilp/                 → MILP penjadwalan (HRD_001/002 global)
 │   ├── cbc/                 → wrapper CBC
 │   ├── model/               → kontrak JSON input/output
@@ -121,14 +146,27 @@ solver/
 | Kode | Tahap | Keterangan |
 |------|-------|------------|
 | HRD_003 | Candidate filter | Kapasitas ruang |
-| HRD_004 | Candidate filter | Slot diizinkan dosen |
+| `required_room_type` | Candidate filter | Tipe ruang wajib per teaching request (jika diset) |
 | HRD_001 | ILP | Tabrakan jadwal dosen |
 | HRD_002 | ILP | Tabrakan jadwal ruang |
-| SFT_001 | Candidate objective | Preferensi mata kuliah (bobot dari `bwm_weights`) |
-| SFT_002 | Objective ILP | Penghindaran jeda kosong |
-| SFT_003 | ILP hard cap | Beban mengajar per hari (`daily_session_limit`) |
+| SFT_001 | Candidate objective + ILP | Preferensi mata kuliah; dipakai untuk dominance/bucket pruning |
+| SFT_002 | Objective ILP | Penghindaran jeda kosong (transition vars) |
+| SFT_003 | ILP hard cap | Beban mengajar per hari (`daily_session_limit`) — **bukan** penalty weighted di objective |
 | SFT_004 | Objective ILP | Pemerataan jadwal mengajar |
 | SFT_005 | Objective ILP | Mobilitas lantai |
+
+### Pruning kandidat (MVP)
+
+Sebelum ILP, pipeline candidate:
+
+1. **Filter hard lokal** — eligible dosen, kapasitas ruang, cap `max_rooms_per_request` via heuristik, `required_room_type`, blok waktu kontigu
+2. **Dominance pruning** — per `(lecturer, room, day)` simpan hingga 3 slot tersebar (bukan hanya slot pagi)
+3. **Bucket pruning** — kuota per dosen, per ruang, dan per slot start (bukan global top-K murni) hingga `max_candidates_per_request`
+4. **Presolve** — `ValidateDailySessionFeasibility` gagal cepat jika beban dosen melebihi `hari × daily_session_limit`
+
+Log metrik: `total_raw`, `total_after_dominance`, `total_candidates`, `eligible_lecturer_hist`, `max_rooms_per_req`, `requests_at_cap`, `distinct_days_per_req`, `distinct_start_slots_per_req`, `distinct_slot_positions_per_req` pada fase `BUILD_CANDIDATES`.
+
+**Catatan:** HRD_004 (ketersediaan slot dosen) tidak dipakai di MVP — field time-slot dihapus dari kontrak request.
 
 ## Integrasi ke backend
 

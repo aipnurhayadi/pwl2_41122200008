@@ -10,6 +10,7 @@
   "config": {
     "daily_session_limit": 2,
     "max_candidates_per_request": 40,
+    "max_rooms_per_request": 5,
     "transition_neighbor_limit": 8,
     "solver_time_limit_seconds": 45,
     "solver_relative_gap": 0.03,
@@ -28,13 +29,11 @@
     {
       "id": 1,
       "allowed_course_ids": [10],
-      "allowed_time_slot_ids": [1, 2, 3],
       "course_preferences": [{"course_id": 10, "rank_order": 1}]
     },
     {
       "id": 2,
       "allowed_course_ids": [11],
-      "allowed_time_slot_ids": [1, 2, 3],
       "course_preferences": [{"course_id": 11, "rank_order": 1}]
     }
   ],

@@ -3,6 +3,7 @@ package timetable
 
 import (
 	"fmt"
+	"strings"
 
 	"pwl2/solver/internal/candidate"
 	"pwl2/solver/internal/ilp"
@@ -15,13 +16,19 @@ func Solve(req model.TimetableSolveRequest) (*model.TimetableSolveResponse, erro
 	if len(req.Requests) == 0 {
 		return nil, fmt.Errorf("teaching_requests is empty")
 	}
-	if len(req.Rooms) == 0 || len(req.TimeSlots) == 0 {
-		return nil, fmt.Errorf("rooms and time_slots are required")
+	if len(req.Rooms) == 0 {
+		return nil, fmt.Errorf("rooms is required and must not be empty")
+	}
+	if len(req.TimeSlots) == 0 {
+		return nil, fmt.Errorf("time_slots is required and must not be empty")
 	}
 
 	cfg := req.Config
 	if cfg.MaxCandidatesPerRequest <= 0 {
-		cfg.MaxCandidatesPerRequest = 40
+		cfg.MaxCandidatesPerRequest = candidate.DefaultMaxCandidatesPerRequest
+	}
+	if cfg.MaxRoomsPerRequest <= 0 {
+		cfg.MaxRoomsPerRequest = candidate.DefaultMaxRoomsPerRequest
 	}
 	if cfg.DailySessionLimit <= 0 {
 		cfg.DailySessionLimit = 2
@@ -49,14 +56,38 @@ func Solve(req model.TimetableSolveRequest) (*model.TimetableSolveResponse, erro
 
 	var candidates map[int][]candidate.Assignment
 	if err := runlog.Phase("BUILD_CANDIDATES", func() error {
+		if presolveErr := candidate.ValidateDailySessionFeasibility(
+			req.Requests,
+			req.Lecturers,
+			req.TimeSlots,
+			cfg.DailySessionLimit,
+		); presolveErr != nil {
+			return presolveErr
+		}
+
+		lecturerLoads := candidate.LecturerEligibleRequestCounts(req.Requests, req.Lecturers)
+		minRequired := candidate.MinRequiredAssignmentsPerLecturer(req.Requests, req.Lecturers)
+		runlog.Event("BUILD_CANDIDATES", "presolve", map[string]any{
+			"daily_session_limit":      cfg.DailySessionLimit,
+			"teaching_days":            countDistinctDaysFromSlots(req.TimeSlots),
+			"lecturer_eligible_counts": lecturerLoads,
+			"lecturer_min_required":    minRequired,
+		})
+
+		var buildStats candidate.BuildStats
 		var buildErr error
-		candidates, buildErr = candidate.Build(
+		buildOpts := candidate.BuildOptions{
+			MaxCandidatesPerRequest: cfg.MaxCandidatesPerRequest,
+			MaxRoomsPerRequest:      cfg.MaxRoomsPerRequest,
+			DominanceSlotsPerDay:    candidate.DefaultDominanceSlotsPerDay,
+		}
+		candidates, buildStats, buildErr = candidate.Build(
 			req.Requests,
 			req.Rooms,
 			req.TimeSlots,
 			req.Lecturers,
 			weights,
-			cfg.MaxCandidatesPerRequest,
+			buildOpts,
 		)
 		if buildErr != nil {
 			return buildErr
@@ -66,9 +97,34 @@ func Solve(req model.TimetableSolveRequest) (*model.TimetableSolveResponse, erro
 		for _, list := range candidates {
 			totalCandidates += len(list)
 		}
+		coverage := candidate.ComputeCoverageStats(candidates, cfg.MaxCandidatesPerRequest)
+		if slotErr := candidate.ValidateForcedLecturerSlotCoverage(req.Requests, req.Lecturers, candidates); slotErr != nil {
+			return slotErr
+		}
 		runlog.Event("BUILD_CANDIDATES", "metrics", map[string]any{
-			"requests":         len(req.Requests),
-			"total_candidates": totalCandidates,
+			"requests":                len(req.Requests),
+			"total_candidates":        totalCandidates,
+			"total_raw":               buildStats.TotalRaw,
+			"total_after_dominance":   buildStats.TotalAfterDominance,
+			"eligible_lecturer_hist":  buildStats.EligibleLecturerHist,
+			"max_candidates_per_req":  cfg.MaxCandidatesPerRequest,
+			"max_rooms_per_req":       cfg.MaxRoomsPerRequest,
+			"requests_at_cap":         coverage.RequestsAtCap,
+			"distinct_days_per_req": map[string]any{
+				"min": coverage.DistinctDaysMin,
+				"avg": coverage.DistinctDaysAvg,
+				"max": coverage.DistinctDaysMax,
+			},
+			"distinct_start_slots_per_req": map[string]any{
+				"min": coverage.DistinctStartsMin,
+				"avg": coverage.DistinctStartsAvg,
+				"max": coverage.DistinctStartsMax,
+			},
+			"distinct_slot_positions_per_req": map[string]any{
+				"min": coverage.DistinctPositionsMin,
+				"avg": coverage.DistinctPositionsAvg,
+				"max": coverage.DistinctPositionsMax,
+			},
 		})
 		return nil
 	}); err != nil {
@@ -103,6 +159,15 @@ func Solve(req model.TimetableSolveRequest) (*model.TimetableSolveResponse, erro
 		)
 		return solveErr
 	}); err != nil {
+		if candidates != nil && isInfeasibleError(err) {
+			diag := candidate.DiagnoseInfeasibility(req.Requests, req.Lecturers, candidates)
+			runlog.Event("ILP_SOLVE", "infeasibility_diagnostics", map[string]any{
+				"single_eligible_requests":    diag.SingleEligibleCount,
+				"shared_room_ids_top5":        diag.SharedRoomIDsTop5,
+				"requests_per_shared_room":    diag.RequestsPerSharedRoom,
+				"forced_lecturer_slot_coverage": diag.ForcedSlotCoverage,
+			})
+		}
 		return &model.TimetableSolveResponse{
 			Status:       "FAILED",
 			SolverStatus: "Error",
@@ -156,4 +221,21 @@ func normalizeWeights(raw map[string]float64) map[string]float64 {
 		out[code] /= total
 	}
 	return out
+}
+
+func countDistinctDaysFromSlots(slots []model.TimeSlot) int {
+	days := map[string]struct{}{}
+	for _, s := range slots {
+		if s.Day != "" {
+			days[s.Day] = struct{}{}
+		}
+	}
+	return len(days)
+}
+
+func isInfeasibleError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "Infeasible")
 }

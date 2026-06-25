@@ -42,8 +42,6 @@ class TeachingRequestBuilder
                     'duration_slots' => 1,
                     'expected_capacity' => $capacity > 0 ? $capacity : null,
                     'class_capacity' => $capacity > 0 ? $capacity : null,
-                    'allowed_room_ids' => [],
-                    'allowed_start_time_slot_ids' => [],
                     'required_room_type' => null,
                 ];
             }
